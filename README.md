@@ -27,4 +27,34 @@ To maintain strict data consistency across independent databases without traditi
 ```bash
 docker-compose up -d
 ```
+
+### Project layout
+
+The repo root is a Maven **multi-module** project (`pom.xml` at the root lists every service as a module).
+Open the **root folder** in IntelliJ and it imports all six services at once.
+
+| Service                 | Port | Database         | Uses                  |
+|-------------------------|------|------------------|-----------------------|
+| api-gateway             | 8080 | –                | Redis                 |
+| account-service         | 8081 | `account_db`     | Postgres, Kafka       |
+| transaction-service     | 8082 | `transaction_db` | Postgres, Kafka, Feign|
+| payment-service         | 8083 | `payment_db`     | Postgres, Kafka       |
+| fraud-detection-service | 8084 | –                | Redis, Kafka          |
+| notification-service    | 8085 | –                | Kafka, Mail           |
+
+Gateway routes: `/api/accounts/**` → account, `/api/transactions/**` → transaction, `/api/payments/**` → payment.
+Health check for any service: `http://localhost:<port>/actuator/health`.
+
+### Running locally
+
+1. Start infrastructure: `docker compose up -d` (Postgres, Redis, Kafka, Zookeeper).
+2. **IntelliJ:** pick a configuration from the Run dropdown (`AccountService`, `ApiGateway`, …) or **All Services** to start everything.
+3. **Command line:** `./mvnw clean package` builds and tests every service from the root;
+   `./mvnw -pl account-service spring-boot:run` runs one service.
+
+Every connection setting in `application.yml` can be overridden with environment variables
+(`DB_HOST`, `DB_USERNAME`, `DB_PASSWORD`, `KAFKA_BOOTSTRAP_SERVERS`, `REDIS_HOST`, `SERVER_PORT`, …).
+
+> If Postgres was first started before `docker/postgres/init` existed, the service databases are missing.
+> Create them with: `docker exec -i postgres psql -U root -d banking_db < docker/postgres/init/01-create-databases.sql`
 ---

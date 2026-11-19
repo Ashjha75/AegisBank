@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    AegisBank root aggregator.
+
+    This POM only groups the microservices so IntelliJ / Maven see them as one
+    multi-module project. Each service keeps its own Spring Boot parent and can
+    still be built on its own (cd account-service && ./mvnw package).
+
+    Build everything from the root:   ./mvnw clean package
+    Build one service from the root:  ./mvnw -pl account-service -am package
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.banking</groupId>
+    <artifactId>aegisbank</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>AegisBank</name>
+    <description>Event-driven digital banking microservices</description>
+
+    <modules>
+        <module>api-gateway</module>
+        <module>account-service</module>
+        <module>transaction-service</module>
+        <module>payment-service</module>
+        <module>fraud-detection-service</module>
+        <module>notification-service</module>
+    </modules>
+</project>

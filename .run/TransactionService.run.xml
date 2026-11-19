@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="TransactionService" type="Application" factoryName="Application" folderName="AegisBank">
+    <option name="MAIN_CLASS_NAME" value="com.banking.transactionservice.TransactionServiceApplication" />
+    <module name="transaction-service" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/transaction-service" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
