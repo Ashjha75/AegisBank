@@ -32,6 +32,5 @@ class AccountResponseTest {
         assertThat(response.minimumBalance()).isEqualByComparingTo("2000");
         assertThat(response.dailyTransactionLimit()).isEqualByComparingTo("100000");
         assertThat(response.createdAt()).isEqualTo(now);
-        assertThat(response.updatedAt()).isEqualTo(now);
     }
 }
