@@ -20,6 +20,14 @@ spring:
       group-id: account-service
       auto-offset-reset: earliest
 
+# Business rules - change per environment without touching code.
+# Override with env vars (ACCOUNT_MIN_BALANCE_SAVINGS=2000) or a file at account-service/config/application.yml.
+account:
+  minimum-balance:
+    savings: ${ACCOUNT_MIN_BALANCE_SAVINGS:0}
+    current: ${ACCOUNT_MIN_BALANCE_CURRENT:5000}
+    fixed-deposit: ${ACCOUNT_MIN_BALANCE_FIXED_DEPOSIT:1000}
+
 management:
   endpoints:
     web:

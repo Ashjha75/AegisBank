@@ -32,6 +32,8 @@ Thumbs.db
 
 # Local environment / secrets
 .env
+# Per-service local overrides, e.g. account-service/config/application.yml (auto-loaded by Spring Boot)
+/*/config/
 
 # Claude Code worktrees
 .claude/worktrees/
