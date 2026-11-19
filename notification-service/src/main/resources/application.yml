@@ -5,18 +5,28 @@ spring:
   application:
     name: notification-service
 
+  # Loads notification-service/.env - REQUIRED (copy .env.example): startup fails clearly if it is missing.
+  # Real environment variables still override its values. In Docker/CI, where config comes
+  # only from env vars, set APP_ENV_FILE=optional:file:.env[.properties] to skip the file.
+  config:
+    import: ${APP_ENV_FILE:file:.env[.properties]}
+
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
       group-id: notification-service
       auto-offset-reset: earliest
 
-  # Uncomment and fill in when you start sending email (e.g. Gmail SMTP or a local Mailpit container)
+  # Uncomment when you start sending email, and fill in the MAIL_* values in notification-service/.env
+  # (e.g. Gmail SMTP with an app password, or a local Mailpit container).
   # mail:
-  #   host: ${MAIL_HOST:localhost}
-  #   port: ${MAIL_PORT:1025}
-  #   username: ${MAIL_USERNAME:}
-  #   password: ${MAIL_PASSWORD:}
+  #   host: ${MAIL_HOST}
+  #   port: ${MAIL_PORT}
+  #   username: ${MAIL_USERNAME}
+  #   password: ${MAIL_PASSWORD}
+  #   properties:
+  #     mail.smtp.auth: true
+  #     mail.smtp.starttls.enable: true
 
 management:
   endpoints:

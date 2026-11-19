@@ -5,10 +5,17 @@ spring:
   application:
     name: account-service
 
+  # Loads account-service/.env - REQUIRED (copy .env.example): startup fails clearly if it is missing.
+  # Real environment variables still override its values. In Docker/CI, where config comes
+  # only from env vars, set APP_ENV_FILE=optional:file:.env[.properties] to skip the file.
+  config:
+    import: ${APP_ENV_FILE:file:.env[.properties]}
+
+  # Credentials have no defaults - they must come from .env or the environment.
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/account_db
-    username: ${DB_USERNAME:aegisuser}
-    password: ${DB_PASSWORD:Staging123$}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: update        # dev only - move to validate + Flyway migrations later
@@ -21,7 +28,7 @@ spring:
       auto-offset-reset: earliest
 
 # Business rules - change per environment without touching code.
-# Override with env vars (ACCOUNT_MIN_BALANCE_SAVINGS=2000) or a file at account-service/config/application.yml.
+# Set in account-service/.env (ACCOUNT_MIN_BALANCE_SAVINGS=2000) or as environment variables.
 account:
   minimum-balance:
     savings: ${ACCOUNT_MIN_BALANCE_SAVINGS:0}

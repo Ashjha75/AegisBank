@@ -5,10 +5,17 @@ spring:
   application:
     name: api-gateway
 
+  # Loads api-gateway/.env - REQUIRED (copy .env.example): startup fails clearly if it is missing.
+  # Real environment variables still override its values. In Docker/CI, where config comes
+  # only from env vars, set APP_ENV_FILE=optional:file:.env[.properties] to skip the file.
+  config:
+    import: ${APP_ENV_FILE:file:.env[.properties]}
+
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}   # required - must match REDIS_PASSWORD in the root .env
 
   # Every client request comes in on :8080 and is forwarded to the owning service.
   cloud:

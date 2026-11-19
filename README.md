@@ -45,22 +45,46 @@ Open the **root folder** in IntelliJ and it imports all six services at once.
 Gateway routes: `/api/accounts/**` → account, `/api/transactions/**` → transaction, `/api/payments/**` → payment.
 Health check for any service: `http://localhost:<port>/actuator/health`.
 
+### Configuration (.env files)
+
+All configuration and secrets come from `.env` files. Each one has a committed `.env.example`
+template listing every value it needs; the real `.env` files are git-ignored.
+
+| File | Used by | Contains |
+|------|---------|----------|
+| `.env` (repo root) | `docker compose` | Postgres user/password, Redis password, host ports |
+| `<service>/.env` | that Spring Boot service | port, DB / Redis / Kafka connection, service-specific keys (Razorpay, mail, minimum balances) |
+
+First-time setup — copy every template, then fill in each `<change-me>`:
+
+```bash
+for f in .env.example */.env.example; do cp -n "$f" "${f%.example}"; done
+```
+
+`DB_PASSWORD` and `REDIS_PASSWORD` must be the same in the root `.env` and the service `.env` files.
+
+- **Fail fast:** secrets have no defaults. `docker compose` refuses to start without the root `.env`,
+  and a service refuses to start without its own `.env`.
+- **Overrides:** real environment variables always win over `.env` values.
+- **Docker / CI** (config from environment variables only): set `APP_ENV_FILE=optional:file:.env[.properties]`
+  so a service starts without the file.
+- **Format:** service `.env` files are read as Java properties — `KEY=value`, no quotes. In the root `.env`,
+  wrap values containing `$` in single quotes.
+
 ### Running locally
 
-1. Start infrastructure: `docker compose up -d` (Postgres, Redis, Kafka, Zookeeper).
-2. **IntelliJ:** pick a configuration from the Run dropdown (`AccountService`, `ApiGateway`, …) or **All Services** to start everything.
-3. **Command line:** `./mvnw clean package` builds and tests every service from the root;
+1. Create the `.env` files (above).
+2. Start infrastructure: `docker compose up -d` (Postgres, Redis, Kafka, Zookeeper, Adminer).
+3. **IntelliJ:** pick a configuration from the Run dropdown (`AccountService`, `ApiGateway`, …) or **All Services** to start everything.
+4. **Command line:** `./mvnw clean package` builds and tests every service from the root;
    `./mvnw -pl account-service spring-boot:run` runs one service.
-
-Every connection setting in `application.yml` can be overridden with environment variables
-(`DB_HOST`, `DB_USERNAME`, `DB_PASSWORD`, `KAFKA_BOOTSTRAP_SERVERS`, `REDIS_HOST`, `SERVER_PORT`, …).
 
 ### Database login
 
-Postgres has a single user, **`aegisuser`**, used by every service and for any database you create
-(default password `Staging123$` — dev only). It owns `aegisbankdb` (default/scratch DB), `account_db`,
-`transaction_db` and `payment_db`. To change the password, copy `.env.example` to `.env` and edit
-`DB_PASSWORD`, set the same `DB_PASSWORD` env var for the services, then reset the volume (below).
+Postgres has a single user, **`aegisuser`** (`DB_USERNAME`), used by every service and for any database you create.
+Its password is `DB_PASSWORD` from the root `.env`. It owns `aegisbankdb` (default/scratch DB), `account_db`,
+`transaction_db` and `payment_db`. To change the password, edit `DB_PASSWORD` in the root `.env` and in each
+database service's `.env`, then reset the volume (below).
 
 Connect from IntelliJ/DBeaver: `jdbc:postgresql://localhost:5432/<db>` with `aegisuser`.
 

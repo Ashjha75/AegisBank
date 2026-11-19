@@ -31,7 +31,11 @@ out/
 Thumbs.db
 
 # Local environment / secrets
+# Real values live in .env files (root and every service) - never commit them.
+# Only the .env.example templates are committed.
 .env
+.env.*
+!.env.example
 # Per-service local overrides, e.g. account-service/config/application.yml (auto-loaded by Spring Boot)
 /*/config/
 

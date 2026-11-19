@@ -1,3 +1,11 @@
+# ==========================================================================
+# AegisBank local infrastructure
+#
+# All settings come from the root .env file (docker compose loads it
+# automatically). First time:  cp .env.example .env  and fill in the values.
+# Secrets have NO defaults here - compose refuses to start if one is missing.
+# ==========================================================================
+
 # Fixed project name so the volume is always "aegisbank_postgres-data",
 # no matter which folder/worktree you run docker compose from.
 name: aegisbank
@@ -6,42 +14,60 @@ services:
 
   # --------------------------------------------------------
   # REDIS - Fraud Detection + Rate Limiting + OTP
+  # Password-protected; services use REDIS_PASSWORD from their own .env.
   # --------------------------------------------------------
   redis:
     image: redis:7-alpine
     container_name: redis
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is not set - copy .env.example to .env}
+    # Read the password from the environment inside the container, so it
+    # never appears in the compose file or the container's command line.
+    command: ["sh", "-c", "exec redis-server --requirepass \"$$REDIS_PASSWORD\""]
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
     networks:
       - banking-network
 
   # --------------------------------------------------------
-  # POSTGRES - All Service Databases (Replaces MySQL)
-  # One login for everything: DB_USERNAME / DB_PASSWORD (override in .env).
+  # POSTGRES - All Service Databases
+  # One login for everything: DB_USERNAME / DB_PASSWORD.
   # That user is the only role in the cluster (there is no "root").
-  # aegisbankdb is the default/scratch database; account_db, transaction_db
-  # and payment_db are created by docker/postgres/init on the first start
-  # (empty volume only), all owned by the same user.
+  # DB_NAME (aegisbankdb) is the default/scratch database; account_db,
+  # transaction_db and payment_db are created by docker/postgres/init on
+  # the first start (empty volume only), all owned by the same user.
   # --------------------------------------------------------
   postgres:
     image: postgres:17-alpine
     container_name: postgres
     environment:
-      POSTGRES_USER: ${DB_USERNAME:-aegisuser}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-Staging123$$}
-      POSTGRES_DB: ${DB_NAME:-aegisbankdb}
+      POSTGRES_USER: ${DB_USERNAME:?DB_USERNAME is not set - copy .env.example to .env}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is not set - copy .env.example to .env}
+      POSTGRES_DB: ${DB_NAME:?DB_NAME is not set - copy .env.example to .env}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
     networks:
       - banking-network
 
   # --------------------------------------------------------
   # ADMINER - Web UI for Postgres: http://localhost:8090
   # Login: System = PostgreSQL, Server = postgres,
-  #        Username = aegisuser, Password = DB_PASSWORD,
+  #        Username = DB_USERNAME, Password = DB_PASSWORD,
   #        Database = (leave EMPTY to see the list of all databases)
   # (port 8090 because the api-gateway uses 8080)
   # --------------------------------------------------------
@@ -49,11 +75,13 @@ services:
     image: adminer:5
     container_name: adminer
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       ADMINER_DEFAULT_SERVER: postgres
     ports:
-      - "8090:8080"
+      - "${ADMINER_PORT:-8090}:8080"
+    restart: unless-stopped
     networks:
       - banking-network
 
@@ -66,12 +94,13 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    restart: unless-stopped
     networks:
       - banking-network
 
   # --------------------------------------------------------
   # KAFKA - Event Streaming
-  # Services running on your machine use localhost:9092;
+  # Services running on your machine use localhost:${KAFKA_PORT};
   # containers on banking-network use kafka:29092.
   # --------------------------------------------------------
   kafka:
@@ -80,17 +109,24 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "9092:9092"
+      - "${KAFKA_PORT:-9092}:${KAFKA_PORT:-9092}"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:${KAFKA_PORT:-9092}
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server kafka:29092 > /dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
     networks:
       - banking-network
 

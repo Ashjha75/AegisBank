@@ -5,10 +5,17 @@ spring:
   application:
     name: transaction-service
 
+  # Loads transaction-service/.env - REQUIRED (copy .env.example): startup fails clearly if it is missing.
+  # Real environment variables still override its values. In Docker/CI, where config comes
+  # only from env vars, set APP_ENV_FILE=optional:file:.env[.properties] to skip the file.
+  config:
+    import: ${APP_ENV_FILE:file:.env[.properties]}
+
+  # Credentials have no defaults - they must come from .env or the environment.
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/transaction_db
-    username: ${DB_USERNAME:aegisuser}
-    password: ${DB_PASSWORD:Staging123$}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: update        # dev only - move to validate + Flyway migrations later
