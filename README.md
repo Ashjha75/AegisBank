@@ -55,6 +55,21 @@ Health check for any service: `http://localhost:<port>/actuator/health`.
 Every connection setting in `application.yml` can be overridden with environment variables
 (`DB_HOST`, `DB_USERNAME`, `DB_PASSWORD`, `KAFKA_BOOTSTRAP_SERVERS`, `REDIS_HOST`, `SERVER_PORT`, …).
 
-> If Postgres was first started before `docker/postgres/init` existed, the service databases are missing.
-> Create them with: `docker exec -i postgres psql -U root -d banking_db < docker/postgres/init/01-create-databases.sql`
+### Database login
+
+Postgres has a single user, **`aegisuser`**, used by every service and for any database you create
+(default password `Staging123$` — dev only). It owns `aegisbankdb` (default/scratch DB), `account_db`,
+`transaction_db` and `payment_db`. To change the password, copy `.env.example` to `.env` and edit
+`DB_PASSWORD`, set the same `DB_PASSWORD` env var for the services, then reset the volume (below).
+
+Connect from IntelliJ/DBeaver: `jdbc:postgresql://localhost:5432/<db>` with `aegisuser`.
+
+**Adminer (web UI):** <http://localhost:8090> — System `PostgreSQL`, Server `postgres`,
+Username `aegisuser`, Password = your `DB_PASSWORD`, and **leave Database empty** to land on a list of
+all databases (click one to open it; the "DB" dropdown in the sidebar switches between them).
+Need another database? `docker exec postgres psql -U aegisuser -d aegisbankdb -c "CREATE DATABASE my_db;"`
+
+> The user, password and databases are only created when the `postgres-data` volume is empty.
+> After changing them, reset it (deletes all DB data):
+> `docker compose rm -sf postgres && docker volume rm aegisbank_postgres-data && docker compose up -d postgres`
 ---
