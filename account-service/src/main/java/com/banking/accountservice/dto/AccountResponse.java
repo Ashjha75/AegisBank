@@ -1,8 +1,6 @@
 package com.banking.accountservice.dto;
 
-import com.banking.accountservice.entity.Account;
-import com.banking.accountservice.entity.AccountStatus;
-import com.banking.accountservice.entity.AccountType;
+import com.banking.accountservice.entity.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -10,7 +8,7 @@ import java.time.LocalDateTime;
 /**
  * Outgoing view of an account, returned by the API.
  * <p>
- * Never return the {@link Account} entity directly: this record decides exactly which
+ * Never return the {@link "Account"} entity directly: this record decides exactly which
  * fields leave the service, so adding a column to the table can't leak it by accident.
  *
  * @param minimumBalance the minimum balance required for this account's type, from
@@ -27,8 +25,7 @@ public record AccountResponse(
         BigDecimal balance,
         BigDecimal minimumBalance,
         BigDecimal dailyTransactionLimit,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime createdAt
 ) {
 
     /**
@@ -48,8 +45,7 @@ public record AccountResponse(
                 account.getBalance(),
                 minimumBalance,
                 account.getDailyTransactionLimit(),
-                account.getCreatedAt(),
-                account.getUpdatedAt()
+                account.getCreatedAt()
         );
     }
 }
