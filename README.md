@@ -65,7 +65,8 @@ Postgres has a single user, **`aegisuser`**, used by every service and for any d
 Connect from IntelliJ/DBeaver: `jdbc:postgresql://localhost:5432/<db>` with `aegisuser`.
 
 **Adminer (web UI):** <http://localhost:8090> — System `PostgreSQL`, Server `postgres`,
-Username `aegisuser`, Password = your `DB_PASSWORD`, Database `aegisbankdb` (switch DBs from the sidebar).
+Username `aegisuser`, Password = your `DB_PASSWORD`, and **leave Database empty** to land on a list of
+all databases (click one to open it; the "DB" dropdown in the sidebar switches between them).
 Need another database? `docker exec postgres psql -U aegisuser -d aegisbankdb -c "CREATE DATABASE my_db;"`
 
 > The user, password and databases are only created when the `postgres-data` volume is empty.

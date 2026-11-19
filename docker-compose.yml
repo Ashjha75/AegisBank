@@ -41,7 +41,8 @@ services:
   # --------------------------------------------------------
   # ADMINER - Web UI for Postgres: http://localhost:8090
   # Login: System = PostgreSQL, Server = postgres,
-  #        Username = aegisuser, Password = DB_PASSWORD, Database = aegisbankdb
+  #        Username = aegisuser, Password = DB_PASSWORD,
+  #        Database = (leave EMPTY to see the list of all databases)
   # (port 8090 because the api-gateway uses 8080)
   # --------------------------------------------------------
   adminer:
