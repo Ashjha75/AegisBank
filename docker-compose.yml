@@ -39,6 +39,24 @@ services:
       - banking-network
 
   # --------------------------------------------------------
+  # ADMINER - Web UI for Postgres: http://localhost:8090
+  # Login: System = PostgreSQL, Server = postgres,
+  #        Username = aegisuser, Password = DB_PASSWORD, Database = aegisbankdb
+  # (port 8090 because the api-gateway uses 8080)
+  # --------------------------------------------------------
+  adminer:
+    image: adminer:5
+    container_name: adminer
+    depends_on:
+      - postgres
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    ports:
+      - "8090:8080"
+    networks:
+      - banking-network
+
+  # --------------------------------------------------------
   # ZOOKEEPER - Required by Kafka
   # --------------------------------------------------------
   zookeeper:
