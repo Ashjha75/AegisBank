@@ -26,7 +26,7 @@ public class Account {
     @Column(nullable = false, unique = true)
     private String phone;
     @Column(nullable = false)
-    private String AccountName;
+    private String AccountHolderName;
     @Column(nullable = false, unique = true)
     private String AccountNumber;
 
