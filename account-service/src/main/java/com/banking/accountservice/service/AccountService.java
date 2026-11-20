@@ -6,6 +6,7 @@ import com.banking.accountservice.entity.Account;
 import com.banking.accountservice.entity.AccountStatus;
 import com.banking.accountservice.entity.AccountType;
 import com.banking.accountservice.exception.ResourceAlreadyExistsException;
+import com.banking.accountservice.exception.ResourceNotFoundException;
 import com.banking.accountservice.mapper.AccountMapper;
 import com.banking.accountservice.repository.AccountRepository;
 import lombok.RequiredArgsConstructor;
@@ -50,11 +51,16 @@ public class AccountService {
     }
 
     public AccountResponse getAccount(String accountNumber) {
-        return null;
+
+        Account account= accountRepository.findByAccountNumber(accountNumber).
+                orElseThrow(()-> new ResourceNotFoundException("Account", "accountNumber", accountNumber));
+        return accountMapper.toResponse(account);
     }
 
-    public AccountResponse getAccountBalance(String accountNumber) {
-        return null;
+    public BigDecimal getAccountBalance(String accountNumber) {
+        Account account= accountRepository.findByAccountNumber(accountNumber).
+                orElseThrow(()-> new ResourceNotFoundException("Account", "accountNumber", accountNumber));
+        return account.getBalance();
     }
 
     public void blockAccount(String accountNumber) {

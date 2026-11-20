@@ -33,7 +33,7 @@ public class AccountController {
     }
 
     @GetMapping("/{accountNumber}/balance")
-    public  ResponseEntity<AccountResponse> getAccountBalance(@PathVariable("accountNumber") String accountNumber) {
+    public  ResponseEntity<BigDecimal> getAccountBalance(@PathVariable("accountNumber") String accountNumber) {
         return  ResponseEntity.status(HttpStatus.OK).body(accountService.getAccountBalance(accountNumber));
     }
 
