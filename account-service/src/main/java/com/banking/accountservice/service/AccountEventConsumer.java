@@ -26,7 +26,7 @@ public class AccountEventConsumer {
      */
    @KafkaListener(topics = "transaction.completed")
     public void consumeTransactionCompleted(@Payload Map<String, Object> payload) {
-        log.info("Received transaction completed : {}", payload);
+        log.info("Received Transaction Payload : {}", payload);
         try {
             String receiverAccountNumber = payload.get("receiverAccountNumber").toString();
             BigDecimal amount = (BigDecimal) payload.get("amount");
@@ -36,6 +36,27 @@ public class AccountEventConsumer {
         }
         catch (Exception e) {
             log.error("Error while processing transaction completed : {}",e.getMessage());
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED,e.getMessage());
+        }
+    }
+
+    /**
+     * Consume: fraud detected, event from Kafka.
+     * Blocks the flagged account .
+     * @param payload
+     */
+    @KafkaListener(topics = "fraud.detected")
+    public void consumeFraudDetected(@Payload Map<String, Object> payload) {
+        log.info("Received Fraud Transaction Payload : {}", payload);
+        try {
+            String receiverAccountNumber = payload.get("receiverAccountNumber").toString();
+            BigDecimal amount = (BigDecimal) payload.get("amount");
+
+            log.info("Blocked account {} ",receiverAccountNumber);
+            accountService.blockAccount(receiverAccountNumber);
+        }
+        catch (Exception e) {
+            log.error("Error while blocking account  : {}",e.getMessage());
             throw new BusinessException(ErrorCode.VALIDATION_FAILED,e.getMessage());
         }
     }
