@@ -37,38 +37,6 @@ public class AccountController {
         return  ResponseEntity.status(HttpStatus.OK).body(accountService.getAccountBalance(accountNumber));
     }
 
-    @PutMapping("/{accountNumber}/block")
-    public ResponseEntity<String> blockAccount(
-            @PathVariable String accountNumber
-    ){
-        accountService.blockAccount(accountNumber);
-        return ResponseEntity.ok("Account Blocked Successfully");
-    }
-
-    /**
-     * SAGA : STEP-1 Deduct Balance -
-     * Called By Transaction Service When Transfer is Initiated
-     */
-    @PutMapping("/{accountNumber}/deduct")
-    public ResponseEntity<String> deductBalance(@PathVariable String accountNumber,
-                                                @RequestParam BigDecimal amount){
-
-        accountService.deductBalance(accountNumber,amount);
-        return  ResponseEntity.ok("Account Deducted Successfully");
-    }
-
-    /**
-     * SAGA : STEP-4 Compensating transaction endpoint -
-     * Called by transaction service in two scenarios: </br>
-     * 1: fraud detected -> refund sender (undo step 1)</br>
-     * 2: Transaction completed -> credit receiver
-     */
-    @PutMapping("/{accountNumber}/credit")
-    public ResponseEntity<String> creditBalance(@PathVariable String accountNumber,
-                                                @RequestParam BigDecimal amount){
-        accountService.creditBalance(accountNumber,amount);
-        return  ResponseEntity.ok("Account Credit Successfully");
-
-    }
+    // block / deduct / credit are service-to-service only: see InternalAccountController
 
 }

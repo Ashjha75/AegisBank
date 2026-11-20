@@ -24,9 +24,23 @@ spring:
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
-      group-id: account-service
+      group-id: account-service-group
       auto-offset-reset: earliest
+      # Class names are case-sensitive. Jackson* classes are the Spring Kafka 4 / Jackson 3 versions
+      # (the older JsonDeserializer/JsonSerializer are deprecated).
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+      properties:
+        # Ignore type headers from producers and always read events as a Map.
+        # Trust only java.util - never "*", which lets a message choose any class to instantiate.
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: java.util.HashMap
+        spring.json.trusted.packages: java.util
 
+    # Used to publish failed events to <topic>-dlt (see config/KafkaConfig)
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
 # Business rules - change per environment without touching code.
 # Set in account-service/.env (ACCOUNT_MIN_BALANCE_SAVINGS=2000) or as environment variables.
 account:
@@ -50,4 +64,5 @@ management:
         include: health,info
   endpoint:
     health:
-      show-details: always
+      # Only show DB/Kafka/disk details to authorized users; anonymous callers just see UP/DOWN.
+      show-details: when-authorized

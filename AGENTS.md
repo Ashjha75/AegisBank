@@ -51,6 +51,14 @@ sub-packages `controller`, `service`, `repository`, `entity`, `dto`, `config`, `
 
 - Request/response DTOs are Java `record`s with Bean Validation annotations.
 - Never return JPA entities from controllers - map to a response DTO.
+- Client-facing endpoints: `/api/v1/...` (routed by the gateway). Service-to-service endpoints that move
+  money or change status: `/internal/v1/...` in a separate `Internal*Controller` - never add an
+  `/internal/**` route to the api-gateway.
+- Every balance/status change runs in `@Transactional` and loads the row with a `...ForUpdate`
+  (pessimistic lock) repository method; validate amounts in the service, not only the controller,
+  because Kafka events bypass controllers.
+- Kafka listeners don't catch-and-swallow exceptions: let them reach the `DefaultErrorHandler`
+  (retries + `<topic>-dlt`).
 - Money is `BigDecimal` (never `double`), columns `precision = 15, scale = 2`.
 - Business errors: throw a subclass of `exception.BusinessException`
   (`ResourceNotFoundException`, `ResourceAlreadyExistsException`, ...). `GlobalExceptionHandler`

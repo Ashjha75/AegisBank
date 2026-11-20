@@ -2,6 +2,7 @@ package com.banking.accountservice.exception;
 
 import com.banking.accountservice.config.AccountProperties;
 import com.banking.accountservice.controller.AccountController;
+import com.banking.accountservice.controller.InternalAccountController;
 import com.banking.accountservice.service.AccountService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,7 +27,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(AccountController.class)
+@WebMvcTest({AccountController.class, InternalAccountController.class})
 class GlobalExceptionHandlerTest {
 
     @TestConfiguration
@@ -76,9 +77,20 @@ class GlobalExceptionHandlerTest {
         willThrow(new InsufficientBalanceException("AEGIS1", new BigDecimal("999.50")))
                 .given(accountService).deductBalance(eq("AEGIS1"), any());
 
-        mockMvc.perform(put("/api/v1/accounts/AEGIS1/deduct").param("amount", "999.50"))
+        mockMvc.perform(put("/internal/v1/accounts/AEGIS1/deduct").param("amount", "999.50"))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.errorCode").value("INSUFFICIENT_BALANCE"));
+    }
+
+    @Test
+    void moneyEndpointsAreNotOnThePublicPath() throws Exception {
+        // The gateway routes /api/v1/accounts/** to clients - deduct/credit/block must not exist there
+        mockMvc.perform(put("/api/v1/accounts/AEGIS1/deduct").param("amount", "1"))
+                .andExpect(status().is4xxClientError());
+        mockMvc.perform(put("/api/v1/accounts/AEGIS1/credit").param("amount", "1"))
+                .andExpect(status().is4xxClientError());
+        mockMvc.perform(put("/api/v1/accounts/AEGIS1/block"))
+                .andExpect(status().is4xxClientError());
     }
 
     @Test
