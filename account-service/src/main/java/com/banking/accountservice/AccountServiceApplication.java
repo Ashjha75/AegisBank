@@ -9,7 +9,10 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 public class AccountServiceApplication {
 
 	public static void main(String[] args) {
+
 		SpringApplication.run(AccountServiceApplication.class, args);
+		System.out.println("AccountServiceApplication working 🪄");
+
 	}
 
 }
