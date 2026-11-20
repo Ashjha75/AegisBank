@@ -4,8 +4,9 @@ package com.banking.transactionservice.entity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
@@ -13,12 +14,15 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "transactions")
-@Data
+// Not @Data: its equals/hashCode use every field (including the generated id), which breaks
+// JPA entities in Sets and Hibernate's dirty checking. Getters/setters are all we need.
+@Getter
+@Setter
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
 public class Transaction {
-    @id
+    @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
