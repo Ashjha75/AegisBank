@@ -5,8 +5,7 @@ import com.banking.accountservice.dto.CreateAccountRequest;
 import com.banking.accountservice.entity.Account;
 import com.banking.accountservice.entity.AccountStatus;
 import com.banking.accountservice.entity.AccountType;
-import com.banking.accountservice.exception.ResourceAlreadyExistsException;
-import com.banking.accountservice.exception.ResourceNotFoundException;
+import com.banking.accountservice.exception.*;
 import com.banking.accountservice.mapper.AccountMapper;
 import com.banking.accountservice.repository.AccountRepository;
 import lombok.RequiredArgsConstructor;
@@ -63,12 +62,47 @@ public class AccountService {
         return account.getBalance();
     }
 
+    /**
+     * Block account - called by Fraud detection service via Kafka
+     * @param accountNumber
+     */
     public void blockAccount(String accountNumber) {
+        log.info("Blocking Account for : {}",accountNumber);
+        Account account= accountRepository.findByAccountNumber(accountNumber).
+                orElseThrow(()-> new ResourceNotFoundException("Account", "accountNumber", accountNumber));
+        account.setAccountStatus(AccountStatus.BLOCKED);
+        accountRepository.save(account);
+        log.info("Account blocked : {}",accountNumber);
     }
 
+    /**
+     * Deduct balance from sender account. </br>
+     * Called by transaction service
+     * @param accountNumber
+     * @param amount
+     */
     public void deductBalance(String accountNumber, BigDecimal amount) {
+        log.info("Deducting balance {} from account: {}",amount,accountNumber);
+        Account account= accountRepository.findByAccountNumber(accountNumber).
+                orElseThrow(()-> new ResourceNotFoundException("Account", "accountNumber", accountNumber));
+        if(!account.getAccountStatus().equals(AccountStatus.ACTIVE)) {
+            throw new AccountNotActiveException(accountNumber,account.getAccountStatus());
+        }
+        if(account.getBalance().compareTo(amount)<0){
+            throw  new InsufficientBalanceException(accountNumber,amount);
+        }
+        account.setBalance(account.getBalance().subtract(amount));
+        accountRepository.save(account);
+        log.info("Account deducted : {} successfully",accountNumber);
     }
 
+    /**
+     * Credit Balance
+     * Called by Transaction services Via Kafka
+     * @param accountNumber
+     * @param amount
+     */
     public void creditBalance(String accountNumber, BigDecimal amount) {
+        log.info("");
     }
 }

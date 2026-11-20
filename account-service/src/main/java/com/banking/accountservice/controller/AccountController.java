@@ -63,6 +63,7 @@ public class AccountController {
      * 1: fraud detected -> refund sender (undo step 1)</br>
      * 2: Transaction completed -> credit receiver
      */
+    @PutMapping("/{accountNumber}/credit")
     public ResponseEntity<String> creditBalance(@PathVariable String accountNumber,
                                                 @RequestParam BigDecimal amount){
         accountService.creditBalance(accountNumber,amount);

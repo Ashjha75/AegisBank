@@ -35,6 +35,14 @@ account:
     current: ${ACCOUNT_MIN_BALANCE_CURRENT:5000}
     fixed-deposit: ${ACCOUNT_MIN_BALANCE_FIXED_DEPOSIT:1000}
 
+# OpenAPI spec at /v3/api-docs, shown in the combined Swagger UI on the api-gateway.
+# Set SWAGGER_ENABLED=false in production to hide it.
+springdoc:
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:true}
+openapi:
+  gateway-url: ${GATEWAY_URL:http://localhost:8080}   # "Try it out" sends requests here
+
 management:
   endpoints:
     web:

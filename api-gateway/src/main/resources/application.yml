@@ -1,3 +1,15 @@
+# ===========================================================================
+# SERVICES - where every downstream service runs. The one place to edit.
+# Each URL comes from api-gateway/.env, so a service can sit on another port or
+# another server (e.g. ACCOUNT_SERVICE_URL=http://10.0.0.12:8081) with no code change.
+# To add a service: add it here, add an API route + a docs route below, and add
+# it to springdoc.swagger-ui.urls.
+# ===========================================================================
+services:
+  account: ${ACCOUNT_SERVICE_URL:http://localhost:8081}
+  transaction: ${TRANSACTION_SERVICE_URL:http://localhost:8082}
+  payment: ${PAYMENT_SERVICE_URL:http://localhost:8083}
+
 server:
   port: ${SERVER_PORT:8080}
 
@@ -23,18 +35,56 @@ spring:
       server:
         webmvc:
           routes:
+            # --- API routes -------------------------------------------------------
             - id: account-service
-              uri: ${ACCOUNT_SERVICE_URL:http://localhost:8081}
+              uri: ${services.account}
               predicates:
-                - Path=/api/accounts/**
+                - Path=/api/v1/accounts/**
             - id: transaction-service
-              uri: ${TRANSACTION_SERVICE_URL:http://localhost:8082}
+              uri: ${services.transaction}
               predicates:
-                - Path=/api/transactions/**
+                - Path=/api/v1/transactions/**
             - id: payment-service
-              uri: ${PAYMENT_SERVICE_URL:http://localhost:8083}
+              uri: ${services.payment}
               predicates:
-                - Path=/api/payments/**
+                - Path=/api/v1/payments/**
+
+            # --- API docs routes (for Swagger UI) ---------------------------------
+            # /docs/account/v3/api-docs -> account-service /v3/api-docs (StripPrefix drops "/docs/account").
+            # The browser only talks to the gateway, so there are no CORS problems.
+            - id: account-service-docs
+              uri: ${services.account}
+              predicates:
+                - Path=/docs/account/v3/api-docs
+              filters:
+                - StripPrefix=2
+            - id: transaction-service-docs
+              uri: ${services.transaction}
+              predicates:
+                - Path=/docs/transaction/v3/api-docs
+              filters:
+                - StripPrefix=2
+            - id: payment-service-docs
+              uri: ${services.payment}
+              predicates:
+                - Path=/docs/payment/v3/api-docs
+              filters:
+                - StripPrefix=2
+
+# Combined Swagger UI: http://localhost:8080/swagger-ui.html
+# One dropdown entry per service. Set SWAGGER_ENABLED=false in production to hide it.
+springdoc:
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:true}
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:true}
+    urls:
+      - name: Account Service
+        url: /docs/account/v3/api-docs
+      - name: Transaction Service
+        url: /docs/transaction/v3/api-docs
+      - name: Payment Service
+        url: /docs/payment/v3/api-docs
 
 management:
   endpoints:
