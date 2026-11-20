@@ -103,6 +103,14 @@ public class AccountService {
      * @param amount
      */
     public void creditBalance(String accountNumber, BigDecimal amount) {
-        log.info("");
+        log.info("Credit {} to account: {} ",amount,accountNumber);
+        Account account= accountRepository.findByAccountNumber(accountNumber).
+                orElseThrow(()-> new ResourceNotFoundException("Account", "accountNumber", accountNumber));
+        if(!account.getAccountStatus().equals(AccountStatus.ACTIVE)) {
+            throw new AccountNotActiveException(accountNumber,account.getAccountStatus());
+        }
+        account.setBalance(account.getBalance().add(amount));
+        accountRepository.save(account);
+        log.info("Account credited : {} successfully",accountNumber);
     }
 }
