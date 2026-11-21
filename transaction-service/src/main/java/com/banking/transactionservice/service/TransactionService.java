@@ -16,4 +16,7 @@ public class TransactionService {
 
     public TransactionResponse getTransaction(String transactionId) {
     }
+
+    public TransactionResponse getTransactionHistory(String accountNumber) {
+    }
 }

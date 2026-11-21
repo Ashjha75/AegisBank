@@ -40,4 +40,10 @@ public class TransactionController {
         log.info("Get transaction requested: {}", transactionId);
         return ResponseEntity.ok(transactionService.getTransaction(transactionId));
     }
+
+    @GetMapping("/{accountNumber}/history")
+    public ResponseEntity<TransactionResponse> getTransactionHistory(@PathVariable String accountNumber) {
+        log.info("Get transaction history requested for account: {}", accountNumber);
+        return ResponseEntity.ok(transactionService.getTransactionHistory(accountNumber));
+    }
 }
