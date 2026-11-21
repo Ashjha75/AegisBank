@@ -1,0 +1,61 @@
+---
+title: account-service
+description: Owns accounts and balances. The only service allowed to change a balance.
+icon: Landmark
+---
+
+**Port** 8081 · **Database** `account_db` (PostgreSQL) · **Consumes** Kafka events
+
+## Endpoints
+
+| Method | Path | Called by | Does |
+| --- | --- | --- | --- |
+| POST | `/api/v1/accounts/create` | Customer | Opens an account with an initial deposit |
+| GET | `/api/v1/accounts/{accountNumber}` | Customer | Account details |
+| GET | `/api/v1/accounts/{accountNumber}/balance` | Customer, services | Current balance |
+| PUT | `/internal/v1/accounts/{accountNumber}/deduct` | transaction-service | Takes money out |
+| PUT | `/internal/v1/accounts/{accountNumber}/credit` | transaction-service | Puts money in (or refunds) |
+| PUT | `/internal/v1/accounts/{accountNumber}/block` | Services | Blocks the account |
+
+Account numbers are 12 digits, generated randomly and retried if the number already exists.
+
+## Kafka events it listens to
+
+| Topic | Effect |
+| --- | --- |
+| `transaction.completed` | Credits the receiver |
+| `fraud.detected` | Blocks the account |
+
+A listener that fails is retried, then the event goes to `<topic>-dlt` (dead-letter topic) instead of being lost.
+
+## Why balances can't go wrong
+
+Every balance change runs in one database transaction and locks the account row first
+(`SELECT ... FOR UPDATE`). Two transfers from the same account at the same moment therefore run one after
+the other, and the second one sees the balance the first one left.
+
+<Mermaid
+  caption="Two deducts at the same time: the row lock makes them take turns"
+  chart={`
+sequenceDiagram
+  participant T1 as Transfer A
+  participant T2 as Transfer B
+  participant DB as account_db
+  T1->>DB: BEGIN, SELECT ... FOR UPDATE (balance 1000)
+  T2->>DB: BEGIN, SELECT ... FOR UPDATE
+  Note over T2,DB: waits for the lock
+  T1->>DB: UPDATE balance = 400, COMMIT
+  DB-->>T2: lock granted (balance 400)
+  T2->>DB: 700 > 400 → INSUFFICIENT_BALANCE, ROLLBACK
+`}
+/>
+
+## Errors it returns
+
+| errorCode | HTTP | When |
+| --- | --- | --- |
+| `RESOURCE_NOT_FOUND` | 404 | No account with that number |
+| `RESOURCE_ALREADY_EXISTS` | 409 | Email or phone already used |
+| `VALIDATION_FAILED` | 400 | Request fields invalid (`errors` lists each field) |
+| `ACCOUNT_NOT_ACTIVE` | 422 | Account blocked or closed |
+| `INSUFFICIENT_BALANCE` | 422 | Deduct larger than the balance |

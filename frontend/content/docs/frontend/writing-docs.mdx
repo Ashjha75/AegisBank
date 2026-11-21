@@ -1,0 +1,74 @@
+---
+title: Writing docs
+description: How to add a page to these notes and which diagram to reach for.
+icon: PenLine
+---
+
+<Steps>
+  <Step>
+    ### Create the file
+
+    Add an `.mdx` file under `frontend/content/docs/` - in the folder of its section (`services/`, `frontend/`) or a
+    new folder with its own `meta.json`.
+  </Step>
+  <Step>
+    ### Add frontmatter
+
+    ```mdx
+    ---
+    title: payment-service
+    description: One sentence on what this page explains.
+    icon: CreditCard
+    ---
+    ```
+
+    `icon` is any [Lucide](https://lucide.dev/icons) icon name; it shows in the sidebar.
+  </Step>
+  <Step>
+    ### List it in meta.json
+
+    Add the file name (without `.mdx`) to `pages` in the folder's `meta.json`. The order there is the sidebar order.
+  </Step>
+  <Step>
+    ### See it
+
+    With `docker compose up` running, the page appears at `/v1/admin/docs-ui/...` and reloads on save.
+  </Step>
+</Steps>
+
+## Which diagram to use
+
+| You want to show | Use |
+| --- | --- |
+| Who calls whom, in order | `sequenceDiagram` |
+| The states something moves through | `stateDiagram-v2` |
+| A process or decision | `flowchart` |
+| Tables and relations | `erDiagram` |
+| Classes and their links | `classDiagram` |
+| The whole system | `<ArchitectureMap />` (edit it in `src/components/docs/architecture-map.tsx`) |
+
+<Mermaid
+  caption="Example: a flowchart"
+  chart={`
+flowchart TD
+  A[Write the MDX page] --> B{Has a diagram?}
+  B -- yes --> C[Pick the diagram type from the table]
+  B -- no --> D[Add one - most pages need it]
+  C --> E[Check it in the browser]
+  D --> C
+`}
+/>
+
+```mdx
+<Mermaid caption="What it shows" chart={`
+sequenceDiagram
+  Client->>Gateway: POST /api/v1/transactions/transfer
+  Gateway->>TransactionService: forward
+`} />
+```
+
+## Other components
+
+- `<Callout type="info|warn|error">` - a highlighted note.
+- `<Tabs items={["Request", "Response"]}>` with `<Tab value="Request">` - side-by-side variants.
+- `<Steps>` / `<Step>` - a numbered walkthrough, like the one at the top of this page.

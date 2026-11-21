@@ -1,0 +1,32 @@
+---
+title: Engineering notes
+description: How AegisBank is built, explained with diagrams - for learning and for explaining it to anyone.
+icon: BookOpen
+---
+
+These notes document AegisBank as it is built: an event-driven banking system of Spring Boot microservices
+with a Next.js frontend. Each page explains one part, why it works that way, and shows it as a diagram.
+
+<Callout title="Private">
+  This docs UI is not part of the customer site. In production it sits behind a password
+  (`DOCS_AUTH_USER` / `DOCS_AUTH_PASSWORD`) and is hidden from search engines.
+</Callout>
+
+## Where to start
+
+<Cards>
+  <Card title="Architecture" href="/v1/admin/docs-ui/architecture" description="Every service, what talks to what, and how a request travels." />
+  <Card title="account-service" href="/v1/admin/docs-ui/services/account-service" description="Accounts, balances, locking and the internal money endpoints." />
+  <Card title="transaction-service" href="/v1/admin/docs-ui/services/transaction-service" description="The transfer SAGA, OTP verification and compensation." />
+  <Card title="Design system" href="/v1/admin/docs-ui/frontend/design-system" description="Colours, typography, components and motion for the UI." />
+</Cards>
+
+## How these notes are organised
+
+| Section | What goes there |
+| --- | --- |
+| Architecture | The big picture: services, infrastructure, request and event flows |
+| Services | One page per Spring Boot service: endpoints, data, events, rules |
+| Frontend | The Next.js app: design system, API layer, error handling |
+
+To add a page, see [Writing docs](./frontend/writing-docs.mdx).

@@ -1,0 +1,60 @@
+---
+title: Architecture
+description: The services, the infrastructure they share, and how a request travels through them.
+icon: Network
+---
+
+AegisBank is split into small Spring Boot services that each own their data. Clients only ever talk to the
+**api-gateway**; services talk to each other over HTTP (OpenFeign) when they need an answer now, and over
+**Kafka** events when they only need to announce that something happened.
+
+<ArchitectureMap />
+
+## Services
+
+| Service | Port | Owns | Status |
+| --- | --- | --- | --- |
+| api-gateway | 8080 | Routing, rate limiting (Redis) | Built |
+| account-service | 8081 | Accounts and balances (`account_db`) | Built |
+| transaction-service | 8082 | Transfers, SAGA, OTP (`transaction_db`) | Built |
+| payment-service | 8083 | Razorpay top-ups (`payment_db`) | Planned |
+| fraud-detection-service | 8084 | Fraud rules (Redis) | Planned |
+| notification-service | 8085 | Email / SMS alerts | Planned |
+| frontend | 3000 | Customer UI, this docs UI, BFF proxy | Built |
+
+## How one request travels
+
+The browser never calls a Spring service directly. It calls the Next.js server, which forwards the request to
+the gateway from the server side, so the gateway's address stays private and no CORS setup is needed.
+
+<Mermaid
+  caption="Reading an account: browser → Next.js → gateway → account-service"
+  chart={`
+sequenceDiagram
+  autonumber
+  participant B as Browser
+  participant N as Next.js (BFF)
+  participant G as api-gateway
+  participant A as account-service
+  participant DB as account_db
+  B->>N: GET /api/gateway/v1/accounts/123456789012
+  N->>G: GET /api/v1/accounts/123456789012
+  Note over G: rate limit per client IP (Redis)
+  G->>A: GET /api/v1/accounts/123456789012
+  A->>DB: SELECT account
+  DB-->>A: row
+  A-->>G: 200 AccountResponse
+  G-->>N: 200
+  N-->>B: 200 JSON
+`}
+/>
+
+## Public vs internal endpoints
+
+| Prefix | Who calls it | Routed by the gateway? |
+| --- | --- | --- |
+| `/api/v1/**` | Browsers (through the frontend) | Yes |
+| `/internal/v1/**` | Other services only (money moves, status changes) | **Never** |
+
+Keeping money-moving endpoints off the gateway means a customer can't call `deduct` or `credit` directly,
+even by guessing the URL.

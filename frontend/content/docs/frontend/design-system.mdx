@@ -1,0 +1,67 @@
+---
+title: Design system
+description: Colours, typography, spacing, components and motion for AegisBank - live from the real tokens.
+icon: Palette
+---
+
+AegisBank should feel like a serious financial product: **premium, calm, accessible, dependable**. Light-first,
+midnight navy for the brand, deep teal used sparingly for interaction, warm off-white pages and white surfaces.
+Borders separate things; shadows are kept for floating layers. Motion is small and only where it helps.
+
+Everything on this page is rendered from the same tokens the app uses (`src/styles/tokens.css`).
+
+## Colour
+
+Components use **semantic** tokens (what a colour means), never the raw scales. Each pair is checked for WCAG AA
+contrast in both themes by `pnpm tokens:check`.
+
+<ColorTokens />
+
+<Callout title="Money colours" type="info">
+  Green means money came in or something succeeded, amber means not settled yet, red means it failed. A normal
+  debit stays **neutral** - paying rent is not an error. The sign (+ / −) is always written, so colour is never the
+  only signal.
+</Callout>
+
+## Typography
+
+Three fonts, one system:
+
+| Font | Used for | Weights |
+| --- | --- | --- |
+| **Manrope** (`font-display`) | Page titles, section headings, account overview headings | 600, 700 |
+| **Inter** (`font-sans`) | All UI: body, navigation, buttons, forms, tables, amounts | 400, 500, 600 |
+| **JetBrains Mono** (`font-mono`) | Technical identifiers only: transaction IDs, references | 400, 500 |
+
+Money always uses tabular numbers (`numeric` class or the `<Amount>` component) so digits line up in columns.
+
+<TypeScale />
+
+## Components
+
+<ComponentGallery />
+
+## Spacing, radius, elevation
+
+- **Spacing**: 4 px grid (Tailwind spacing). Common steps: 8, 12, 16, 24, 32, 48, 64.
+- **Radius**: `xs` 2 · `sm` 4 (badges) · `md` 6 (buttons, inputs) · `lg` 8 (cards) · `xl` 12 (dialogs). Nothing is pill-shaped by default.
+- **Elevation**: cards use a 1 px border. `shadow-md` for menus and popovers, `shadow-lg` for dialogs only.
+
+## Motion
+
+| Token | Duration | Used for |
+| --- | --- | --- |
+| `duration-instant` | 80 ms | Press feedback |
+| `duration-fast` | 140 ms | Hover, colour changes |
+| `duration-base` | 200 ms | Popovers, tooltips, toasts |
+| `duration-slow` | 280 ms | Dialogs, drawers |
+| `duration-slower` | 420 ms | Page-level reveals (hero only) |
+
+Entering things decelerate (`ease-enter`), leaving things accelerate (`ease-exit`). With "reduce motion" turned on
+in the OS, every duration becomes 0 and Motion components skip their animation.
+
+## Icons
+
+[Lucide](https://lucide.dev) only, outline style. Sizes: 16 px in dense UI and buttons, 20 px in navigation,
+24 px for feature icons. Stroke width 1.75 for feature icons, the default elsewhere. Decorative icons get
+`aria-hidden`; an icon-only button needs an `aria-label`.

@@ -1,0 +1,71 @@
+---
+title: transaction-service
+description: Runs a transfer as a SAGA - a chain of local steps with a compensating step when one fails.
+icon: ArrowLeftRight
+---
+
+**Port** 8082 · **Database** `transaction_db` · **Calls** account-service through OpenFeign
+
+## Why a SAGA
+
+A transfer touches two accounts, but there is no single database transaction across services. Instead each
+step is saved as soon as it happens, and if a later step fails, an earlier one is **undone by a compensating
+action** - here, refunding the sender.
+
+<Mermaid
+  caption="Transfer states"
+  chart={`
+stateDiagram-v2
+  direction LR
+  [*] --> PENDING: transfer saved
+  PENDING --> FAILED: deduct sender fails
+  PENDING --> PROCESSING: sender debited
+  PROCESSING --> PENDING_VERIFICATION: amount ≥ OTP threshold
+  PROCESSING --> COMPLETED: receiver credited
+  PROCESSING --> FAILED: credit fails → sender refunded
+  PENDING_VERIFICATION --> COMPLETED: correct OTP → receiver credited
+  PENDING_VERIFICATION --> FLAGGED: OTP expired or too many wrong tries → sender refunded
+  COMPLETED --> [*]
+  FAILED --> [*]
+  FLAGGED --> [*]
+`}
+/>
+
+## The happy path, with an OTP
+
+<Mermaid
+  caption="High-value transfer: debit, pause for OTP, then credit"
+  chart={`
+sequenceDiagram
+  autonumber
+  participant C as Customer
+  participant T as transaction-service
+  participant A as account-service
+  C->>T: POST /api/v1/transactions/transfer
+  T->>T: save PENDING
+  T->>A: PUT /internal/v1/accounts/{sender}/deduct
+  A-->>T: 200
+  T->>T: PROCESSING, amount ≥ threshold → PENDING_VERIFICATION (OTP hashed + expiry)
+  T-->>C: 201 PENDING_VERIFICATION
+  C->>T: POST /api/v1/transactions/{id}/verify-otp { otp }
+  T->>A: PUT /internal/v1/accounts/{receiver}/credit
+  A-->>T: 200
+  T->>T: COMPLETED
+  T-->>C: 200 COMPLETED
+`}
+/>
+
+## Endpoints
+
+| Method | Path | Does |
+| --- | --- | --- |
+| POST | `/api/v1/transactions/transfer` | Starts a transfer |
+| GET | `/api/v1/transactions/{transactionId}` | One transfer |
+| GET | `/api/v1/transactions/account/{accountNumber}/history` | Transfers of an account |
+| POST | `/api/v1/transactions/{transactionId}/verify-otp` | Confirms a paused transfer with its 6-digit code |
+
+## Rules worth remembering
+
+- The OTP is stored only as a hash, compared in constant time, and expires.
+- Wrong codes are counted; after the limit the transfer is `FLAGGED` and the sender refunded.
+- If even the refund fails, the reason says so (`needs manual check`) - money is never silently lost.

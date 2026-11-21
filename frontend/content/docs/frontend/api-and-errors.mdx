@@ -1,0 +1,71 @@
+---
+title: API layer and errors
+description: How the frontend calls the backend, and how every failure becomes one error model.
+icon: Cable
+---
+
+## The backend-for-frontend proxy
+
+The browser calls our own Next.js server at `/api/gateway/v1/...`. The server forwards the request to the
+api-gateway (`API_GATEWAY_URL`, read at request time) and streams the answer back.
+
+<Mermaid
+  caption="Why a proxy: one origin for the browser, the gateway stays private"
+  chart={`
+flowchart LR
+  B[Browser] -- "/api/gateway/v1/**" --> N["Next.js server<br/>src/app/api/gateway"]
+  N -- "/api/v1/** + x-request-id" --> G[api-gateway :8080]
+  G --> S[Spring Boot services]
+  N -. "gateway down / timeout" .-> E["Problem Details<br/>502 / 504"]
+`}
+/>
+
+- Only `/v1/**` paths are forwarded; anything else (including `/internal`) gets a 404 from the proxy.
+- Every request carries an `x-request-id` so one call can be followed through the logs.
+- Money-moving calls send an `Idempotency-Key`, so a retried request never moves money twice.
+
+## One error model
+
+Every Spring Boot service answers errors as **RFC 9457 Problem Details**:
+
+```json
+{
+  "type": "about:blank",
+  "title": "Insufficient balance",
+  "status": 422,
+  "detail": "Account 123456789012 has 400.00, needs 700.00",
+  "instance": "/internal/v1/accounts/123456789012/deduct",
+  "errorCode": "INSUFFICIENT_BALANCE",
+  "timestamp": "2026-11-21T08:30:00Z"
+}
+```
+
+The frontend turns that - and every failure that never reached a service - into one `ApiError`
+(`src/lib/api/problem.ts`). UI code branches on `errorCode`, never on the `detail` text.
+
+| errorCode | Comes from | What the customer sees |
+| --- | --- | --- |
+| `VALIDATION_FAILED` | Service | Message under each invalid field |
+| `INSUFFICIENT_BALANCE` | account-service | "Not enough balance" |
+| `ACCOUNT_NOT_ACTIVE` | account-service | "Account unavailable" |
+| `INVALID_OTP` | transaction-service | "Incorrect code" |
+| `INVALID_TRANSACTION_STATE` | transaction-service | "Transfer already handled" |
+| `DOWNSTREAM_SERVICE_ERROR` | transaction-service | "Service busy" |
+| `RATE_LIMITED` | Gateway (429) | "Too many requests" |
+| `GATEWAY_UNAVAILABLE` / `GATEWAY_TIMEOUT` | Frontend proxy | "Service unavailable" / "Taking too long" |
+| `NETWORK_ERROR` | Browser | "You're offline" |
+
+The customer-facing text for each code lives in `src/lib/api/error-messages.ts`.
+
+## Which UI state for which situation
+
+| Situation | Show |
+| --- | --- |
+| Loading data | `Skeleton` shaped like the final content |
+| Nothing to show yet | Empty state with one next action |
+| A form was rejected | Field errors + `Alert` at the top of the form |
+| An action finished | Toast (`toast.success`) |
+| A page crashed | `error.tsx` page with "Try again" |
+| URL doesn't exist | `not-found.tsx` |
+
+Reads retry twice on network or server errors; **writes never retry automatically**.
