@@ -18,6 +18,7 @@ public enum ErrorCode {
 
     // Transaction lifecycle
     INVALID_TRANSACTION_STATE(HttpStatus.CONFLICT, "Invalid transaction state"),
+    INVALID_OTP(HttpStatus.UNPROCESSABLE_CONTENT, "Invalid OTP"),
 
     // Calls to other services (account-service, payment-service) during the SAGA
     DOWNSTREAM_SERVICE_ERROR(HttpStatus.BAD_GATEWAY, "Downstream service error");

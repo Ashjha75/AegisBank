@@ -42,6 +42,13 @@ springdoc:
 openapi:
   gateway-url: ${GATEWAY_URL:http://localhost:8080}   # "Try it out" sends requests here
 
+# Business rules - change per environment in transaction-service/.env.
+transaction:
+  otp:
+    threshold: ${TRANSACTION_OTP_THRESHOLD:50000}          # transfers >= this need an OTP (INR)
+    expiry-minutes: ${TRANSACTION_OTP_EXPIRY_MINUTES:5}
+    max-attempts: ${TRANSACTION_OTP_MAX_ATTEMPTS:3}        # then FLAGGED + sender refunded
+
 management:
   endpoints:
     web:
