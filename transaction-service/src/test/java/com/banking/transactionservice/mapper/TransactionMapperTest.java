@@ -39,9 +39,13 @@ class TransactionMapperTest {
     void toResponseMapsEveryField() {
         LocalDateTime created = LocalDateTime.now().minusMinutes(1);
         LocalDateTime completed = LocalDateTime.now();
-        Transaction transaction = new Transaction("tx-1", "363100275256", "562014000524", new BigDecimal("1500.50"),
-                TransactionType.TRANSFER, TransactionStatus.FAILED, "Rent", "Insufficient balance", "TXN123",
-                created, completed);
+        Transaction transaction = Transaction.builder()
+                .id("tx-1").senderAccountNumber("363100275256").receiverAccountNumber("562014000524")
+                .amount(new BigDecimal("1500.50")).type(TransactionType.TRANSFER).status(TransactionStatus.FAILED)
+                .description("Rent").failureReason("Insufficient balance").referenceNumber("TXN123")
+                .otpHash("must-never-reach-the-client")
+                .createdAt(created).completedAt(completed)
+                .build();
 
         TransactionResponse response = mapper.toResponse(transaction);
 

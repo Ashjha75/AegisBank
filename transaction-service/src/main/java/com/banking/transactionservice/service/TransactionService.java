@@ -1,22 +1,252 @@
 package com.banking.transactionservice.service;
 
+import com.banking.transactionservice.client.AccountClient;
+import com.banking.transactionservice.config.OtpProperties;
 import com.banking.transactionservice.dto.TransactionResponse;
 import com.banking.transactionservice.dto.TransferRequest;
-import jakarta.validation.Valid;
+import com.banking.transactionservice.entity.Transaction;
+import com.banking.transactionservice.entity.TransactionStatus;
+import com.banking.transactionservice.entity.TransactionType;
+import com.banking.transactionservice.exception.DownstreamServiceException;
+import com.banking.transactionservice.exception.InvalidOtpException;
+import com.banking.transactionservice.exception.InvalidTransactionStateException;
+import com.banking.transactionservice.exception.InvalidTransferException;
+import com.banking.transactionservice.exception.ResourceNotFoundException;
+import com.banking.transactionservice.mapper.TransactionMapper;
+import com.banking.transactionservice.repository.TransactionRepository;
+import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * Money transfer SAGA between two accounts (both owned by account-service):
+ * <pre>
+ *  1. save transaction PENDING
+ *  2. deduct sender            -> fails: FAILED (nothing moved)
+ *  3. status PROCESSING
+ *  4. amount >= OTP threshold  -> PENDING_VERIFICATION, wait for verifyOTP()
+ *  5. credit receiver          -> fails: refund sender, FAILED
+ *  6. COMPLETED
+ *
+ *  verifyOTP: right OTP -> step 5;  expired / too many wrong OTPs -> refund sender, FLAGGED
+ * </pre>
+ * Feign calls are not wrapped in one big DB transaction: every status change is saved straight away,
+ * so the table always shows how far the SAGA got.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class TransactionService {
-    public TransactionResponse transfer(@Valid TransferRequest transferRequest) {
+
+    private static final SecureRandom RANDOM = new SecureRandom();
+    private static final DateTimeFormatter REFERENCE_TIME = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+    /** Pulls "detail" out of account-service's RFC 9457 error body, e.g. "Insufficient balance ...". */
+    private static final Pattern PROBLEM_DETAIL = Pattern.compile("\"detail\"\\s*:\\s*\"([^\"]*)\"");
+
+    private final TransactionRepository transactionRepository;
+    private final TransactionMapper transactionMapper;
+    private final AccountClient accountClient;
+    private final OtpProperties otpProperties;
+
+    /**
+     * Starts a transfer. Returns the saved transaction: COMPLETED, PENDING_VERIFICATION (OTP needed)
+     * or FAILED (with failureReason, e.g. insufficient balance).
+     *
+     * @throws DownstreamServiceException account-service failed or was unreachable while deducting
+     */
+    public TransactionResponse transfer(TransferRequest request) {
+        validate(request);
+
+        Transaction transaction = transactionMapper.toEntity(request);
+        transaction.setType(TransactionType.TRANSFER);
+        transaction.setStatus(TransactionStatus.PENDING);
+        transaction.setReferenceNumber(newReferenceNumber());
+        transaction = transactionRepository.save(transaction);
+        log.info("Transfer {} started: {} -> {}, amount {}", transaction.getReferenceNumber(),
+                transaction.getSenderAccountNumber(), transaction.getReceiverAccountNumber(), transaction.getAmount());
+
+        // SAGA step 1: take the money from the sender
+        try {
+            accountClient.deductBalance(transaction.getSenderAccountNumber(), transaction.getAmount());
+        } catch (FeignException e) {
+            markFailed(transaction, "Could not deduct sender: " + reason(e));
+            if (isServerSide(e)) {
+                throw new DownstreamServiceException("account-service", "deduct balance", e);
+            }
+            return transactionMapper.toResponse(transaction);
+        }
+        transaction.setStatus(TransactionStatus.PROCESSING);
+        transaction = transactionRepository.save(transaction);
+
+        if (transaction.getAmount().compareTo(otpProperties.threshold()) >= 0) {
+            issueOtp(transaction);
+            return transactionMapper.toResponse(transactionRepository.save(transaction));
+        }
+        return creditReceiver(transaction);
     }
 
+    @Transactional(readOnly = true)
     public TransactionResponse getTransaction(String transactionId) {
+        return transactionRepository.findById(transactionId)
+                .map(transactionMapper::toResponse)
+                .orElseThrow(() -> new ResourceNotFoundException("Transaction", "id", transactionId));
     }
 
-    public TransactionResponse getTransactionHistory(String accountNumber) {
+    @Transactional(readOnly = true)
+    public List<TransactionResponse> getTransactionHistory(String accountNumber) {
+        return transactionRepository
+                .findBySenderAccountNumberOrReceiverAccountNumberOrderByCreatedAtDesc(accountNumber, accountNumber)
+                .stream()
+                .map(transactionMapper::toResponse)
+                .toList();
+    }
+
+    /**
+     * Confirms a PENDING_VERIFICATION transfer. The row is locked so two parallel calls can't both credit
+     * the receiver. A wrong OTP still saves the attempt count (noRollbackFor) before telling the client.
+     */
+    @Transactional(noRollbackFor = InvalidOtpException.class)
+    public TransactionResponse verifyOTP(String transactionId, String otp) {
+        Transaction transaction = transactionRepository.findByIdForUpdate(transactionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Transaction", "id", transactionId));
+
+        if (transaction.getStatus() != TransactionStatus.PENDING_VERIFICATION) {
+            throw new InvalidTransactionStateException(transactionId, transaction.getStatus(), "verify OTP");
+        }
+        if (LocalDateTime.now().isAfter(transaction.getOtpExpiresAt())) {
+            return flagAndRefund(transaction, "OTP expired");
+        }
+        if (!MessageDigest.isEqual(hash(otp).getBytes(StandardCharsets.UTF_8),
+                transaction.getOtpHash().getBytes(StandardCharsets.UTF_8))) {
+            transaction.setOtpAttempts(transaction.getOtpAttempts() + 1);
+            int attemptsLeft = otpProperties.maxAttempts() - transaction.getOtpAttempts();
+            if (attemptsLeft <= 0) {
+                return flagAndRefund(transaction, "Too many wrong OTP attempts");
+            }
+            transactionRepository.save(transaction);
+            throw new InvalidOtpException(attemptsLeft);
+        }
+
+        clearOtp(transaction);
+        log.info("Transfer {} verified by OTP", transaction.getReferenceNumber());
+        return creditReceiver(transaction);
+    }
+
+    // ---------------------------------------------------------------- SAGA steps
+
+    /** SAGA step 2: give the money to the receiver; refund the sender if that fails. */
+    private TransactionResponse creditReceiver(Transaction transaction) {
+        try {
+            accountClient.creditBalance(transaction.getReceiverAccountNumber(), transaction.getAmount());
+        } catch (FeignException e) {
+            String reason = "Could not credit receiver: " + reason(e);
+            markFailed(transaction, refundSender(transaction) ? reason + " (sender refunded)"
+                    : reason + " (sender refund FAILED - needs manual check)");
+            return transactionMapper.toResponse(transaction);
+        }
+        transaction.setStatus(TransactionStatus.COMPLETED);
+        transaction.setCompletedAt(LocalDateTime.now());
+        log.info("Transfer {} completed", transaction.getReferenceNumber());
+        return transactionMapper.toResponse(transactionRepository.save(transaction));
+    }
+
+    /** Compensating step: give the deducted amount back to the sender. Returns false if that failed too. */
+    private boolean refundSender(Transaction transaction) {
+        try {
+            accountClient.creditBalance(transaction.getSenderAccountNumber(), transaction.getAmount());
+            log.info("Transfer {}: sender refunded", transaction.getReferenceNumber());
+            return true;
+        } catch (FeignException e) {
+            log.error("Transfer {}: REFUND TO SENDER {} FAILED ({}) - needs manual check",
+                    transaction.getReferenceNumber(), transaction.getSenderAccountNumber(), reason(e), e);
+            return false;
+        }
+    }
+
+    private TransactionResponse flagAndRefund(Transaction transaction, String reason) {
+        clearOtp(transaction);
+        transaction.setStatus(TransactionStatus.FLAGGED);
+        transaction.setFailureReason(refundSender(transaction) ? reason + " (sender refunded)"
+                : reason + " (sender refund FAILED - needs manual check)");
+        log.warn("Transfer {} flagged: {}", transaction.getReferenceNumber(), transaction.getFailureReason());
+        return transactionMapper.toResponse(transactionRepository.save(transaction));
+    }
+
+    private void markFailed(Transaction transaction, String reason) {
+        transaction.setStatus(TransactionStatus.FAILED);
+        transaction.setFailureReason(reason);
+        transactionRepository.save(transaction);
+        log.warn("Transfer {} failed: {}", transaction.getReferenceNumber(), reason);
+    }
+
+    // ---------------------------------------------------------------- OTP
+
+    private void issueOtp(Transaction transaction) {
+        String otp = "%06d".formatted(RANDOM.nextInt(1_000_000));
+        transaction.setStatus(TransactionStatus.PENDING_VERIFICATION);
+        transaction.setOtpHash(hash(otp));
+        transaction.setOtpExpiresAt(LocalDateTime.now().plusMinutes(otpProperties.expiryMinutes()));
+        transaction.setOtpAttempts(0);
+        // TODO: publish an event so notification-service sends the OTP, then delete this log line.
+        // DEV ONLY - an OTP must never be logged in production.
+        log.info("[DEV ONLY] OTP for transfer {} (id {}): {}", transaction.getReferenceNumber(), transaction.getId(), otp);
+    }
+
+    private static void clearOtp(Transaction transaction) {
+        transaction.setOtpHash(null);
+        transaction.setOtpExpiresAt(null);
+    }
+
+    private static String hash(String value) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 not available", e);
+        }
+    }
+
+    // ---------------------------------------------------------------- helpers
+
+    /** Same rules as TransferRequest's Bean Validation - repeated here because Kafka events skip controllers. */
+    private static void validate(TransferRequest request) {
+        if (request.amount() == null || request.amount().signum() <= 0) {
+            throw new InvalidTransferException("Amount must be greater than zero");
+        }
+        if (request.senderAccountNumber() == null
+                || request.senderAccountNumber().equals(request.receiverAccountNumber())) {
+            throw new InvalidTransferException("Sender and receiver accounts must be different");
+        }
+    }
+
+    /** e.g. TXN20261121143005-4821 */
+    private static String newReferenceNumber() {
+        return "TXN" + LocalDateTime.now().format(REFERENCE_TIME) + "-" + "%04d".formatted(RANDOM.nextInt(10_000));
+    }
+
+    /** 5xx or no response at all (status -1): account-service broke, not a business "no". */
+    private static boolean isServerSide(FeignException e) {
+        return e.status() < 0 || e.status() >= 500;
+    }
+
+    private static String reason(FeignException e) {
+        if (e.status() < 0) {
+            return "account-service unreachable";
+        }
+        Matcher detail = PROBLEM_DETAIL.matcher(e.contentUTF8());
+        return detail.find() ? detail.group(1) : "account-service returned HTTP " + e.status();
     }
 }
