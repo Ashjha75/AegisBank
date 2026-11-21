@@ -14,7 +14,7 @@ import java.math.BigDecimal;
  * Incoming payload for a money transfer between two accounts.
  * A record (immutable, no Lombok), like the account-service DTOs.
  */
-public record TransactionRequest(
+public record TransferRequest(
 
         @NotBlank(message = "Sender account number is required")
         @Pattern(regexp = "^[1-9]\\d{11}$", message = "Sender account number must be 12 digits")
