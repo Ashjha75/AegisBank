@@ -9,7 +9,7 @@ import { z } from "zod";
  * use NEXT_PUBLIC_* variables: those are frozen into the JS bundle during `next build`.
  * Template with every variable: .env.example
  */
-const schema = z.object({
+const baseSchema = z.object({
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
@@ -19,10 +19,22 @@ const schema = z.object({
   API_TIMEOUT_MS: z.coerce.number().int().positive().default(15000),
   /** Basic-auth credentials for the docs UI. Required in production (see src/proxy.ts). */
   DOCS_AUTH_USER: z.string().min(1).optional(),
-  DOCS_AUTH_PASSWORD: z
-    .string()
-    .min(12, "DOCS_AUTH_PASSWORD must be at least 12 characters")
-    .optional(),
+  /** At least 12 characters in production; any non-empty value in development. */
+  DOCS_AUTH_PASSWORD: z.string().min(1).optional(),
+});
+
+const schema = baseSchema.superRefine((env, ctx) => {
+  if (
+    env.NODE_ENV === "production" &&
+    env.DOCS_AUTH_PASSWORD !== undefined &&
+    env.DOCS_AUTH_PASSWORD.length < 12
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["DOCS_AUTH_PASSWORD"],
+      message: "DOCS_AUTH_PASSWORD must be at least 12 characters",
+    });
+  }
 });
 
 export type ServerEnv = z.infer<typeof schema>;

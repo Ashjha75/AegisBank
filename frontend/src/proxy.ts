@@ -15,9 +15,13 @@ const MIN_PASSWORD_LENGTH = 12;
 export function proxy(request: NextRequest) {
   const user = process.env.DOCS_AUTH_USER;
   const password = process.env.DOCS_AUTH_PASSWORD;
+  const isProduction = process.env.NODE_ENV === "production";
+  // The length rule only applies in production; in development any password (e.g. "admin") works.
+  const tooShort =
+    isProduction && (password?.length ?? 0) < MIN_PASSWORD_LENGTH;
 
-  if (!user || !password || password.length < MIN_PASSWORD_LENGTH) {
-    if (process.env.NODE_ENV === "production") {
+  if (!user || !password || tooShort) {
+    if (isProduction) {
       return new NextResponse(
         `Docs UI is disabled: set DOCS_AUTH_USER and a DOCS_AUTH_PASSWORD of at least ${MIN_PASSWORD_LENGTH} characters.`,
         {

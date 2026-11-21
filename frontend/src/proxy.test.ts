@@ -41,6 +41,17 @@ describe("docs proxy", () => {
     );
   });
 
+  it("accepts a short password in development (and still asks for it)", () => {
+    setEnv({
+      NODE_ENV: "development",
+      DOCS_AUTH_USER: "admin",
+      DOCS_AUTH_PASSWORD: "admin",
+    });
+    expect(proxy(new NextRequest(url)).status).toBe(401);
+    const ok = proxy(new NextRequest(url, { headers: basic("admin:admin") }));
+    expect(ok.headers.get("x-middleware-next")).toBe("1");
+  });
+
   it("asks for credentials (401) when they are configured but missing", () => {
     setEnv({
       NODE_ENV: "production",
