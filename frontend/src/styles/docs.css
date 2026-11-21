@@ -1,0 +1,50 @@
+/*
+ * Stylesheet for the docs UI (/v1/admin/docs-ui). Tailwind keeps its default scales here because
+ * Fumadocs' own components use them; our tokens are layered on top and Fumadocs' colours are
+ * re-pointed at them, so the docs share the AegisBank look.
+ */
+@import "tailwindcss";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+@import "./tokens.css";
+@import "./theme.css";
+@import "./base.css";
+
+/* Our components (rendered inside MDX) are in src/components - make sure Tailwind scans them. */
+@source "../components";
+@source "../../content";
+
+/* Fumadocs colour slots -> AegisBank semantic tokens (light and dark follow automatically). */
+:root,
+.dark {
+  --color-fd-background: var(--background);
+  --color-fd-foreground: var(--foreground);
+  --color-fd-muted: var(--surface-subtle);
+  --color-fd-muted-foreground: var(--muted-foreground);
+  --color-fd-popover: var(--surface);
+  --color-fd-popover-foreground: var(--surface-foreground);
+  --color-fd-card: var(--surface);
+  --color-fd-card-foreground: var(--surface-foreground);
+  --color-fd-border: var(--border);
+  --color-fd-primary: var(--accent);
+  --color-fd-primary-foreground: var(--accent-foreground);
+  --color-fd-secondary: var(--secondary);
+  --color-fd-secondary-foreground: var(--secondary-foreground);
+  --color-fd-accent: var(--accent-subtle);
+  --color-fd-accent-foreground: var(--foreground);
+  --color-fd-ring: var(--ring);
+  --color-fd-info: var(--info);
+  --color-fd-warning: var(--warning);
+  --color-fd-error: var(--danger);
+  --color-fd-success: var(--success);
+}
+
+/* Headings in docs content use the display face, like the rest of the product. */
+.prose :where(h1, h2, h3, h4) {
+  font-family: var(--font-display);
+  letter-spacing: -0.015em;
+}
+
+.prose :where(code):not(:where(pre code)) {
+  font-family: var(--font-mono);
+}

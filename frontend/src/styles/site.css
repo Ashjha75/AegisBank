@@ -1,0 +1,10 @@
+/*
+ * Stylesheet for the customer-facing site (src/app/(site)).
+ * Tailwind's default palette, font sizes, radii and shadows are removed on purpose, so only
+ * design-token classes exist here: `bg-blue-500` or `text-lg` simply don't compile to anything.
+ */
+@import "tailwindcss";
+@import "./tokens.css";
+@import "./theme-reset.css";
+@import "./theme.css";
+@import "./base.css";

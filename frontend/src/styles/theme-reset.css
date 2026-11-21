@@ -1,0 +1,8 @@
+/* Drop Tailwind's built-in scales so the design tokens are the only options (site only). */
+@theme {
+  --color-*: initial;
+  --text-*: initial;
+  --font-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+}

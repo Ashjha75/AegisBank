@@ -1,0 +1,207 @@
+/*
+ * Layer 3: maps the semantic tokens (tokens.css) onto Tailwind utilities.
+ * `inline` makes Tailwind emit var(--token) so classes follow the active light/dark theme.
+ *
+ * Use:  bg-background  bg-surface  text-foreground  text-muted-foreground  border-border
+ *       bg-primary  text-accent  ring-ring  bg-success-subtle  text-money-credit ...
+ */
+@theme inline {
+  /* Colours */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-foreground: var(--surface-foreground);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-overlay: var(--overlay);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-brand-mark-accent: var(--brand-mark-accent);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-ring: var(--ring);
+  --color-secondary: var(--secondary);
+  --color-secondary-hover: var(--secondary-hover);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-subtle: var(--success-subtle);
+  --color-success-border: var(--success-border);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-warning-border: var(--warning-border);
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-on: var(--danger-on);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-danger-border: var(--danger-border);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-subtle: var(--info-subtle);
+  --color-info-border: var(--info-border);
+  --color-money-credit: var(--money-credit);
+  --color-money-debit: var(--money-debit);
+  --color-money-pending: var(--money-pending);
+  --color-money-failed: var(--money-failed);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-white: oklch(1 0 0);
+  --color-black: oklch(0 0 0);
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  /* Fonts (variables set by next/font in src/lib/fonts.ts) */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display:
+    var(--font-manrope), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono:
+    var(--font-jetbrains-mono), ui-monospace, "SFMono-Regular", monospace;
+
+  /* Type scale - one class sets size, line height, tracking (and weight where it is fixed) */
+  --text-display: 3rem; /* 48 - hero headline only */
+  --text-display--line-height: 1.08;
+  --text-display--letter-spacing: -0.025em;
+  --text-h1: 2rem; /* 32 - page title */
+  --text-h1--line-height: 1.2;
+  --text-h1--letter-spacing: -0.02em;
+  --text-h2: 1.5rem; /* 24 - section heading */
+  --text-h2--line-height: 1.3;
+  --text-h2--letter-spacing: -0.015em;
+  --text-h3: 1.25rem; /* 20 - card / panel heading */
+  --text-h3--line-height: 1.4;
+  --text-h3--letter-spacing: -0.01em;
+  --text-h4: 1.0625rem; /* 17 - small heading */
+  --text-h4--line-height: 1.45;
+  --text-body-lg: 1.0625rem; /* 17 - lead paragraphs */
+  --text-body-lg--line-height: 1.6;
+  --text-body: 0.9375rem; /* 15 - default UI and body text */
+  --text-body--line-height: 1.6;
+  --text-body-sm: 0.875rem; /* 14 - tables, dense lists, secondary text */
+  --text-body-sm--line-height: 1.5;
+  --text-label: 0.8125rem; /* 13 - form labels, buttons-sm, tabs */
+  --text-label--line-height: 1.4;
+  --text-caption: 0.75rem; /* 12 - helper text, timestamps */
+  --text-caption--line-height: 1.4;
+  --text-overline: 0.6875rem; /* 11 - eyebrow labels, uppercase */
+  --text-overline--line-height: 1.3;
+  --text-overline--letter-spacing: 0.08em;
+  --text-amount-xl: 2.25rem; /* 36 - account balance */
+  --text-amount-xl--line-height: 1.1;
+  --text-amount-xl--letter-spacing: -0.02em;
+  --text-amount: 1rem; /* 16 - amounts in lists */
+  --text-amount--line-height: 1.4;
+
+  /* Elevation (theme dependent: tokens.css) */
+  --shadow-xs: var(--elevation-xs);
+  --shadow-sm: var(--elevation-sm);
+  --shadow-md: var(--elevation-md);
+  --shadow-lg: var(--elevation-lg);
+
+  /* Motion (durations: tokens.css; curves: below) */
+  --animate-fade-in: fade-in var(--duration-base) var(--ease-enter);
+  --animate-fade-out: fade-out var(--duration-fast) var(--ease-exit);
+  --animate-pop-in: pop-in var(--duration-base) var(--ease-enter);
+  --animate-pop-out: pop-out var(--duration-fast) var(--ease-exit);
+  --animate-dialog-in: dialog-in var(--duration-slow) var(--ease-enter);
+  --animate-dialog-out: dialog-out var(--duration-fast) var(--ease-exit);
+  --animate-shimmer: shimmer 1.6s linear infinite;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes fade-out {
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: translateY(-2px) scale(0.98);
+    }
+  }
+  @keyframes pop-out {
+    to {
+      opacity: 0;
+      transform: scale(0.98);
+    }
+  }
+  @keyframes dialog-in {
+    from {
+      opacity: 0;
+      transform: translate(-50%, calc(-50% + 8px)) scale(0.98);
+    }
+  }
+  @keyframes dialog-out {
+    to {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.98);
+    }
+  }
+  @keyframes shimmer {
+    from {
+      background-position: 200% 0;
+    }
+    to {
+      background-position: -200% 0;
+    }
+  }
+}
+
+/* Theme-independent scales. Emitted as CSS variables too, so var(--radius-md) works anywhere. */
+@theme {
+  /* Radius: restrained, never pill-shaped by default */
+  --radius-xs: 0.125rem; /* 2px  - tags, kbd */
+  --radius-sm: 0.25rem; /* 4px  - badges, checkboxes */
+  --radius-md: 0.375rem; /* 6px  - buttons, inputs */
+  --radius-lg: 0.5rem; /* 8px  - cards, popovers */
+  --radius-xl: 0.75rem; /* 12px - dialogs, large panels */
+  --radius-full: 9999px; /* avatars, status dots only */
+
+  /* Easing */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1); /* moves within the screen */
+  --ease-enter: cubic-bezier(
+    0.05,
+    0.7,
+    0.1,
+    1
+  ); /* things arriving: decelerate */
+  --ease-exit: cubic-bezier(0.3, 0, 0.8, 0.15); /* things leaving: accelerate */
+}
+
+/* Durations as utilities: duration-fast, duration-base ... */
+@utility duration-instant {
+  transition-duration: var(--duration-instant);
+}
+@utility duration-fast {
+  transition-duration: var(--duration-fast);
+}
+@utility duration-base {
+  transition-duration: var(--duration-base);
+}
+@utility duration-slow {
+  transition-duration: var(--duration-slow);
+}
+
+/* Money and numbers: aligned digits, no proportional jitter in tables */
+@utility numeric {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Theme switching is class based (next-themes sets .dark on <html>). */
+@custom-variant dark (&:where(.dark, .dark *));

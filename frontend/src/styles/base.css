@@ -1,0 +1,43 @@
+/* Global element styles shared by the site and the docs UI. */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Inter: l with tail and serifed I - tells apart l / 1 / I in account numbers and references */
+    font-feature-settings:
+      "cv05" 1,
+      "cv08" 1;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    background-color: var(--accent-subtle);
+    color: var(--foreground);
+  }
+
+  /* One focus style everywhere; mouse clicks don't show it, keyboard does. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
