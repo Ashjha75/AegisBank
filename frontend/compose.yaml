@@ -1,0 +1,58 @@
+# AegisBank frontend - everything runs in containers; no local Node.js needed.
+#
+#   cp .env.example .env               # once
+#   docker compose up --watch          # dev server with hot reload  -> http://localhost:3000
+#   docker compose --profile prod up --build web-prod                 -> http://localhost:3001
+#
+# This file is independent of the backend's docker-compose.yml at the repository root.
+# The backend (api-gateway on :8080) is reached through host.docker.internal.
+
+name: aegisbank-frontend
+
+services:
+  web:
+    build:
+      context: .
+      target: dev
+    image: aegisbank-frontend:dev
+    env_file: .env
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    develop:
+      # Sync edits into the container instead of bind-mounting the folder: hot reload works the same
+      # on macOS, Windows and Linux, and the container keeps its own Linux node_modules.
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+        - action: sync
+          path: ./content
+          target: /app/content
+        - action: sync
+          path: ./public
+          target: /app/public
+        - action: sync
+          path: ./scripts
+          target: /app/scripts
+        - action: sync+restart
+          path: ./next.config.ts
+          target: /app/next.config.ts
+        - action: rebuild
+          path: ./package.json
+        - action: rebuild
+          path: ./pnpm-lock.yaml
+
+  web-prod:
+    profiles: [prod]
+    build:
+      context: .
+      target: runner
+    image: aegisbank-frontend:latest
+    env_file: .env
+    ports:
+      - "${FRONTEND_PROD_PORT:-3001}:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

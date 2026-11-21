@@ -1,0 +1,27 @@
+# Keep the build context small and free of secrets.
+node_modules
+.next
+out
+build
+coverage
+playwright-report
+test-results
+.source
+*.tsbuildinfo
+next-env.d.ts
+npm-debug.log*
+pnpm-debug.log*
+
+# Secrets: runtime config is passed with env vars / env_file, never copied into an image.
+.env
+.env.*
+!.env.example
+
+.git
+.gitignore
+Dockerfile
+compose.yaml
+.dockerignore
+docs
+*.md
+!content/**/*.md
