@@ -18,7 +18,7 @@ pnpm-debug.log*
 !.env.example
 
 .git
-.gitignore
+# .gitignore stays in the context: biome.json reads it (vcs.useIgnoreFile).
 Dockerfile
 compose.yaml
 .dockerignore
