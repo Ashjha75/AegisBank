@@ -1,0 +1,2 @@
+# Use LF everywhere so Biome and the Linux containers see the same files as Windows checkouts.
+* text=auto eol=lf
