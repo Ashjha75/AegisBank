@@ -1,6 +1,6 @@
 package com.banking.transactionservice.exception;
 
-import com.banking.transactionservice.dto.TransactionRequest;
+import com.banking.transactionservice.dto.TransferRequest;
 import com.banking.transactionservice.entity.TransactionStatus;
 import jakarta.validation.Valid;
 import org.junit.jupiter.api.Test;
@@ -57,7 +57,7 @@ class GlobalExceptionHandlerTest {
         }
 
         @PostMapping("/probe/transfer")
-        String transfer(@Valid @RequestBody TransactionRequest request) {
+        String transfer(@Valid @RequestBody TransferRequest request) {
             return "ok";
         }
     }

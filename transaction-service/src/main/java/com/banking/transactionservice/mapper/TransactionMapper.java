@@ -1,6 +1,6 @@
 package com.banking.transactionservice.mapper;
 
-import com.banking.transactionservice.dto.TransactionRequest;
+import com.banking.transactionservice.dto.TransferRequest;
 import com.banking.transactionservice.dto.TransactionResponse;
 import com.banking.transactionservice.entity.Transaction;
 import org.springframework.stereotype.Component;
@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component;
 public class TransactionMapper {
 
     /** Copies the client-supplied fields. The service must still set type, status and referenceNumber. */
-    public Transaction toEntity(TransactionRequest request) {
+    public Transaction toEntity(TransferRequest request) {
         return Transaction.builder()
                 .senderAccountNumber(request.senderAccountNumber())
                 .receiverAccountNumber(request.receiverAccountNumber())

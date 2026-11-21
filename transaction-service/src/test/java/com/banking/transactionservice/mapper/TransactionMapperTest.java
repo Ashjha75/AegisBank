@@ -1,6 +1,6 @@
 package com.banking.transactionservice.mapper;
 
-import com.banking.transactionservice.dto.TransactionRequest;
+import com.banking.transactionservice.dto.TransferRequest;
 import com.banking.transactionservice.dto.TransactionResponse;
 import com.banking.transactionservice.entity.Transaction;
 import com.banking.transactionservice.entity.TransactionStatus;
@@ -19,7 +19,7 @@ class TransactionMapperTest {
 
     @Test
     void toEntityCopiesOnlyClientSuppliedFields() {
-        TransactionRequest request = new TransactionRequest(
+        TransferRequest request = new TransferRequest(
                 "363100275256", "562014000524", new BigDecimal("1500.50"), "Rent");
 
         Transaction transaction = mapper.toEntity(request);
