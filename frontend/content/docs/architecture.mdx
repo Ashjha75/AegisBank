@@ -8,7 +8,7 @@ AegisBank is split into small Spring Boot services that each own their data. Cli
 **api-gateway**; services talk to each other over HTTP (OpenFeign) when they need an answer now, and over
 **Kafka** events when they only need to announce that something happened.
 
-<ArchitectureMap />
+<SystemMap />
 
 ## Services
 
@@ -27,26 +27,28 @@ AegisBank is split into small Spring Boot services that each own their data. Cli
 The browser never calls a Spring service directly. It calls the Next.js server, which forwards the request to
 the gateway from the server side, so the gateway's address stays private and no CORS setup is needed.
 
-<Mermaid
-  caption="Reading an account: browser → Next.js → gateway → account-service"
-  chart={`
-sequenceDiagram
-  autonumber
-  participant B as Browser
-  participant N as Next.js (BFF)
-  participant G as api-gateway
-  participant A as account-service
-  participant DB as account_db
-  B->>N: GET /api/gateway/v1/accounts/123456789012
-  N->>G: GET /api/v1/accounts/123456789012
-  Note over G: rate limit per client IP (Redis)
-  G->>A: GET /api/v1/accounts/123456789012
-  A->>DB: SELECT account
-  DB-->>A: row
-  A-->>G: 200 AccountResponse
-  G-->>N: 200
-  N-->>B: 200 JSON
-`}
+<SequenceDiagram
+  title="Reading an account"
+  tag="browser → account_db"
+  caption="The browser never calls a Spring service directly; the gateway rate-limits per client IP."
+  participants={[
+    { id: "b", label: "Browser" },
+    { id: "n", label: "Next.js", sub: "BFF proxy" },
+    { id: "g", label: "API gateway", sub: ":8080", accent: true },
+    { id: "a", label: "account-service", sub: ":8081" },
+    { id: "d", label: "account_db", sub: "PostgreSQL" },
+  ]}
+  steps={[
+    { from: "b", to: "n", label: "GET /api/gateway/v1/accounts/{n}" },
+    { from: "n", to: "g", label: "GET /api/v1/accounts/{n}" },
+    { note: "rate limit per client IP (Redis)", over: ["g"] },
+    { from: "g", to: "a", label: "GET /api/v1/accounts/{n}" },
+    { from: "a", to: "d", label: "SELECT account" },
+    { from: "d", to: "a", label: "row", reply: true },
+    { from: "a", to: "g", label: "200 AccountResponse", reply: true },
+    { from: "g", to: "n", label: "200", reply: true },
+    { from: "n", to: "b", label: "200 JSON", reply: true },
+  ]}
 />
 
 ## Public vs internal endpoints

@@ -209,22 +209,22 @@ curl -X POST http://localhost:8080/api/v1/transactions/7f3a92c1-0b4e-4c1d-9a51-2
 
 ## How a transfer flows
 
-```mermaid
-sequenceDiagram
-  participant B as Browser
-  participant G as api-gateway
-  participant T as transaction-service
-  participant A as account-service
-  B->>G: POST /api/v1/transactions/transfer
-  G->>T: forward
-  T->>T: save PENDING
-  T->>A: deduct sender (internal)
-  A-->>T: ok
-  T->>T: status PROCESSING
-  alt amount below OTP threshold
-    T->>A: credit receiver (internal)
-    T-->>B: 201 COMPLETED
-  else amount at or above threshold
-    T-->>B: 201 PENDING_VERIFICATION
-  end
-```
+<SequenceDiagram
+  title="Transfer request"
+  tag="POST /api/v1/transactions/transfer"
+  participants={[
+    { id: "b", label: "Browser" },
+    { id: "g", label: "API gateway", sub: ":8080" },
+    { id: "t", label: "transaction-svc", sub: ":8082", accent: true },
+    { id: "a", label: "account-service", sub: ":8081" },
+  ]}
+  steps={[
+    { from: "b", to: "g", label: "POST /transactions/transfer" },
+    { from: "g", to: "t", label: "forward" },
+    { from: "t", to: "t", label: "save PENDING" },
+    { from: "t", to: "a", label: "deduct sender (/internal)" },
+    { from: "a", to: "t", label: "ok", reply: true },
+    { from: "t", to: "a", label: "credit receiver (below threshold)" },
+    { from: "t", to: "b", label: "201 COMPLETED", reply: true },
+  ]}
+/>

@@ -12,47 +12,31 @@ A transfer touches two accounts, but there is no single database transaction acr
 step is saved as soon as it happens, and if a later step fails, an earlier one is **undone by a compensating
 action** - here, refunding the sender.
 
-<Mermaid
-  caption="Transfer states"
-  chart={`
-stateDiagram-v2
-  direction LR
-  [*] --> PENDING: transfer saved
-  PENDING --> FAILED: deduct sender fails
-  PENDING --> PROCESSING: sender debited
-  PROCESSING --> PENDING_VERIFICATION: amount ≥ OTP threshold
-  PROCESSING --> COMPLETED: receiver credited
-  PROCESSING --> FAILED: credit fails → sender refunded
-  PENDING_VERIFICATION --> COMPLETED: correct OTP → receiver credited
-  PENDING_VERIFICATION --> FLAGGED: OTP expired or too many wrong tries → sender refunded
-  COMPLETED --> [*]
-  FAILED --> [*]
-  FLAGGED --> [*]
-`}
-/>
+<TransferStates />
 
 ## The happy path, with an OTP
 
-<Mermaid
-  caption="High-value transfer: debit, pause for OTP, then credit"
-  chart={`
-sequenceDiagram
-  autonumber
-  participant C as Customer
-  participant T as transaction-service
-  participant A as account-service
-  C->>T: POST /api/v1/transactions/transfer
-  T->>T: save PENDING
-  T->>A: PUT /internal/v1/accounts/{sender}/deduct
-  A-->>T: 200
-  T->>T: PROCESSING, amount ≥ threshold → PENDING_VERIFICATION (OTP hashed + expiry)
-  T-->>C: 201 PENDING_VERIFICATION
-  C->>T: POST /api/v1/transactions/{id}/verify-otp { otp }
-  T->>A: PUT /internal/v1/accounts/{receiver}/credit
-  A-->>T: 200
-  T->>T: COMPLETED
-  T-->>C: 200 COMPLETED
-`}
+<SequenceDiagram
+  title="High-value transfer"
+  tag="debit · pause for OTP · credit"
+  caption="Amounts at or above the OTP threshold pause in PENDING_VERIFICATION until the right code arrives."
+  participants={[
+    { id: "c", label: "Customer" },
+    { id: "t", label: "transaction-svc", sub: ":8082", accent: true },
+    { id: "a", label: "account-service", sub: ":8081" },
+  ]}
+  steps={[
+    { from: "c", to: "t", label: "POST /transactions/transfer" },
+    { from: "t", to: "t", label: "save PENDING" },
+    { from: "t", to: "a", label: "PUT /internal/…/{sender}/deduct" },
+    { from: "a", to: "t", label: "200", reply: true },
+    { from: "t", to: "t", label: "PENDING_VERIFICATION · OTP hashed" },
+    { from: "t", to: "c", label: "201 PENDING_VERIFICATION", reply: true },
+    { from: "c", to: "t", label: "POST /{id}/verify-otp { otp }" },
+    { from: "t", to: "a", label: "PUT /internal/…/{receiver}/credit" },
+    { from: "a", to: "t", label: "200", reply: true },
+    { from: "t", to: "c", label: "200 COMPLETED", reply: true },
+  ]}
 />
 
 ## Endpoints

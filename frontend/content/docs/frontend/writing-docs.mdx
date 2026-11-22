@@ -40,31 +40,58 @@ icon: PenLine
 
 | You want to show | Use |
 | --- | --- |
-| Who calls whom, in order | `sequenceDiagram` |
-| The states something moves through | `stateDiagram-v2` |
-| A process or decision | `flowchart` |
-| Tables and relations | `erDiagram` |
-| Classes and their links | `classDiagram` |
-| The whole system | `<ArchitectureMap />` (edit it in `src/components/docs/architecture-map.tsx`) |
+| Who calls whom, in order | `<SequenceDiagram>` - laid out for you from participants and steps |
+| The whole system | `<SystemMap />` (edit `src/components/docs/diagrams/library.tsx`) |
+| The states a transfer moves through | `<TransferStates />` |
+| Any other flow (boxes and arrows) | `<Diagram>` with `<Box>` and `<Arrow>` |
 
-<Mermaid
-  caption="Example: a flowchart"
-  chart={`
-flowchart TD
-  A[Write the MDX page] --> B{Has a diagram?}
-  B -- yes --> C[Pick the diagram type from the table]
-  B -- no --> D[Add one - most pages need it]
-  C --> E[Check it in the browser]
-  D --> C
-`}
-/>
+<Callout type="error" title="No Mermaid">
+  Mermaid is not used in these docs - its output doesn't match the design. Draw diagrams with the components
+  above: pure SVG in the docs theme, with the main path animated.
+</Callout>
+
+A hand-drawn flow - boxes and right-angle arrows in viewBox coordinates. `flow` marks the main path (animated),
+`dashed` an optional or async link, `cut` a failure branch; tones are `accent`, `success`, `warning`,
+`danger` and `muted` (planned).
+
+<Diagram title="Example flow" tag="Box + Arrow" width={620} height={130} minWidth={520}>
+  <Box x={10} y={44} w={110} h={40} label="Request" />
+  <Box x={210} y={40} w={150} h={48} label="Resolver" sub="picks the handler" tone="accent" />
+  <Box x={460} y={12} w={150} h={36} label="Handler A" />
+  <Box x={460} y={80} w={150} h={36} label="Handler B" tone="muted" />
+  <Arrow d="M120 64 H204" flow label="HTTP" at={[162, 56]} />
+  <Arrow d="M360 64 H410 V30 H454" flow />
+  <Arrow d="M360 64 H410 V98 H454" dashed label="fallback" at={[418, 92]} anchor="start" />
+</Diagram>
+
+```mdx title="The diagram above"
+<Diagram title="Example flow" tag="Box + Arrow" width={620} height={130}>
+  <Box x={10} y={44} w={110} h={40} label="Request" />
+  <Box x={210} y={40} w={150} h={48} label="Resolver" sub="picks the handler" tone="accent" />
+  <Box x={460} y={12} w={150} h={36} label="Handler A" />
+  <Box x={460} y={80} w={150} h={36} label="Handler B" tone="muted" />
+  <Arrow d="M120 64 H204" flow label="HTTP" at={[162, 56]} />
+  <Arrow d="M360 64 H410 V30 H454" flow />
+  <Arrow d="M360 64 H410 V98 H454" dashed label="fallback" at={[418, 92]} anchor="start" />
+</Diagram>
+```
+
+A sequence - no coordinates needed:
 
 ```mdx
-<Mermaid caption="What it shows" chart={`
-sequenceDiagram
-  Client->>Gateway: POST /api/v1/transactions/transfer
-  Gateway->>TransactionService: forward
-`} />
+<SequenceDiagram
+  title="Transfer request" tag="POST /transfer"
+  participants={[
+    { id: "b", label: "Browser" },
+    { id: "t", label: "transaction-svc", accent: true },
+  ]}
+  steps={[
+    { from: "b", to: "t", label: "POST /transactions/transfer" },
+    { from: "t", to: "t", label: "save PENDING" },
+    { note: "amount >= threshold: wait for OTP", over: ["t"] },
+    { from: "t", to: "b", label: "201 PENDING_VERIFICATION", reply: true },
+  ]}
+/>
 ```
 
 ## Other components

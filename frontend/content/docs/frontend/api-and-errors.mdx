@@ -9,20 +9,12 @@ icon: Cable
 The browser calls our own Next.js server at `/api/gateway/v1/...`. The server forwards the request to the
 api-gateway (`API_GATEWAY_URL`, read at request time) and streams the answer back.
 
-<Mermaid
-  caption="Why a proxy: one origin for the browser, the gateway stays private"
-  chart={`
-flowchart LR
-  B[Browser] -- "/api/gateway/v1/**" --> N["Next.js server<br/>src/app/api/gateway"]
-  N -- "/api/v1/** + x-request-id" --> G[api-gateway :8080]
-  G --> S[Spring Boot services]
-  N -. "gateway down / timeout" .-> E["Problem Details<br/>502 / 504"]
-`}
-/>
+<ProxyPath />
 
 - Only `/v1/**` paths are forwarded; anything else (including `/internal`) gets a 404 from the proxy.
 - Every request carries an `x-request-id` so one call can be followed through the logs.
-- Money-moving calls send an `Idempotency-Key`, so a retried request never moves money twice.
+- Money-moving calls send an `Idempotency-Key`. The backend does not enforce it yet, so a retried transfer
+  can still start a second one - see [ADR-001](../decisions/adr-001-saga-for-transfers.mdx).
 
 ## One error model
 

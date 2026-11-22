@@ -5,7 +5,7 @@ icon: Wrench
 ---
 
 All of these work in any `.mdx` page under `content/docs` without imports. They follow the conventions of
-well-known developer docs: Stripe-style API blocks, Nygard ADRs, Mermaid (sequence, state, ER, C4) for
+well-known developer docs: Stripe-style API blocks, Nygard ADRs, hand-drawn SVG diagrams for
 system design, Shiki-highlighted code with tabs.
 
 ## Code blocks
@@ -116,50 +116,28 @@ Inline methods: <MethodBadge method="GET" /> <MethodBadge method="POST" /> <Meth
 
 ## System design diagrams
 
-Write a ` ```mermaid ` block - it renders as a diagram. Use the right kind for the question:
+Diagrams are hand-drawn SVG components in the docs theme - never Mermaid. Full guide:
+[Writing docs](./writing-docs.mdx#which-diagram-to-use).
 
-| Question | Diagram |
-| --- | --- |
-| Who calls whom, in what order? | `sequenceDiagram` |
-| What states can a thing be in? | `stateDiagram-v2` |
-| How are tables related? | `erDiagram` |
-| What is the system and who uses it? | `C4Context` |
-| How do the services connect right now? | `<ArchitectureMap />` (interactive) |
+<SystemMap />
 
-```mermaid
-erDiagram
-  ACCOUNT ||--o{ TRANSACTION : "sends (by accountNumber)"
-  ACCOUNT ||--o{ TRANSACTION : "receives (by accountNumber)"
-  ACCOUNT {
-    string id PK
-    string accountNumber UK
-    string accountHolderName
-    string accountType
-    string accountStatus
-    decimal balance
-    decimal dailyTransactionLimit
-  }
-  TRANSACTION {
-    string id PK
-    string senderAccountNumber
-    string receiverAccountNumber
-    decimal amount
-    string status
-    string referenceNumber
-  }
-```
-
-```mermaid
-C4Context
-  title AegisBank - system context
-  Person(customer, "Customer", "Banks online")
-  System(web, "AegisBank web", "Next.js frontend")
-  System(gateway, "api-gateway", "Spring Cloud Gateway")
-  System(core, "Core services", "account, transaction, payment")
-  Rel(customer, web, "Uses")
-  Rel(web, gateway, "/api/v1/**")
-  Rel(gateway, core, "Routes")
-```
+<SequenceDiagram
+  title="Transfer request"
+  tag="POST /transfer"
+  participants={[
+    { id: "b", label: "Browser" },
+    { id: "t", label: "transaction-svc", sub: ":8082", accent: true },
+    { id: "a", label: "account-service", sub: ":8081" },
+  ]}
+  steps={[
+    { from: "b", to: "t", label: "POST /transactions/transfer" },
+    { from: "t", to: "t", label: "save PENDING" },
+    { from: "t", to: "a", label: "deduct sender (/internal)" },
+    { from: "a", to: "t", label: "ok", reply: true },
+    { note: "amount >= threshold: wait for OTP", over: ["t"] },
+    { from: "t", to: "b", label: "201 PENDING_VERIFICATION", reply: true },
+  ]}
+/>
 
 ## Architecture decisions
 

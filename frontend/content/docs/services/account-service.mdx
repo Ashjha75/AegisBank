@@ -34,20 +34,23 @@ Every balance change runs in one database transaction and locks the account row 
 (`SELECT ... FOR UPDATE`). Two transfers from the same account at the same moment therefore run one after
 the other, and the second one sees the balance the first one left.
 
-<Mermaid
-  caption="Two deducts at the same time: the row lock makes them take turns"
-  chart={`
-sequenceDiagram
-  participant T1 as Transfer A
-  participant T2 as Transfer B
-  participant DB as account_db
-  T1->>DB: BEGIN, SELECT ... FOR UPDATE (balance 1000)
-  T2->>DB: BEGIN, SELECT ... FOR UPDATE
-  Note over T2,DB: waits for the lock
-  T1->>DB: UPDATE balance = 400, COMMIT
-  DB-->>T2: lock granted (balance 400)
-  T2->>DB: 700 > 400 → INSUFFICIENT_BALANCE, ROLLBACK
-`}
+<SequenceDiagram
+  title="Two deducts at the same time"
+  tag="SELECT … FOR UPDATE"
+  caption="The row lock makes concurrent deducts take turns, so the balance can never go below zero."
+  participants={[
+    { id: "a", label: "Transfer A" },
+    { id: "db", label: "account_db", sub: "balance 1000", accent: true },
+    { id: "b", label: "Transfer B" },
+  ]}
+  steps={[
+    { from: "a", to: "db", label: "BEGIN · SELECT … FOR UPDATE" },
+    { from: "b", to: "db", label: "BEGIN · SELECT … FOR UPDATE" },
+    { note: "Transfer B waits for the lock", over: ["db", "b"] },
+    { from: "a", to: "db", label: "UPDATE balance = 400 · COMMIT" },
+    { from: "db", to: "b", label: "lock granted (balance 400)", reply: true },
+    { from: "b", to: "db", label: "700 > 400 → ROLLBACK", fail: true },
+  ]}
 />
 
 ## Errors it returns
