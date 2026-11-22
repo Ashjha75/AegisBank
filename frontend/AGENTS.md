@@ -35,7 +35,7 @@ With local Node 26 + pnpm 12 instead: `pnpm install`, `pnpm dev`, `pnpm check`, 
 | `pnpm lint` / `pnpm lint:fix` | Biome lint + format check / fix |
 | `pnpm typecheck` | `next typegen` + `tsc --noEmit` |
 | `pnpm test` | Vitest (unit + component) |
-| `pnpm tokens:check` | WCAG AA contrast of every colour token pair, light and dark |
+| `pnpm tokens:check` | WCAG AA contrast of every colour token pair, site and docs (paper) theme |
 | `pnpm check` | All four checks above - **run before reporting work as done** |
 | `pnpm api:types` | Generate API types from the backend's OpenAPI docs (backend must be running) |
 
@@ -77,15 +77,17 @@ docs/plan.md                   decisions and roadmap
 - Use semantic tokens only: `bg-surface`, `text-muted-foreground`, `border-border`, `text-money-credit`.
   Never raw colours (`#fff`, `bg-blue-500`, `oklch(...)` in components) - the default Tailwind palette is
   switched off for the site on purpose.
-- New colour → add primitive + semantic token (light **and** dark) in `tokens.css`, map it in
+- One light theme, no dark mode. Brand green is `text-brand` / `bg-brand`; `bg-accent` means a hover
+  background (shadcn/ui meaning). shadcn component class names (`bg-popover`, `bg-muted` ...) are mapped.
+- New colour → add primitive + semantic token in `tokens.css` (and `docs-theme.css` if it is a surface), map it in
   `theme.css`, add the pair to `scripts/check-contrast.mjs`, run `pnpm tokens:check`.
 - Text sizes from the scale: `text-display`, `text-h1..h4`, `text-body(-lg|-sm)`, `text-label`,
   `text-caption`, `text-overline`, `text-amount(-xl)`.
-- Fonts: `font-display` (Manrope) headings, `font-sans` (Inter) everything else, `font-mono` only for
+- Fonts: IBM Plex Sans (`font-sans`, `font-display`; headings at weight 500), IBM Plex Mono (`font-mono`) only for
   IDs/references. Don't add fonts.
 - Money: always `<Amount>` (or `formatMoney` + `numeric`). Debits stay neutral; never colour without a sign.
   Never do arithmetic on money in the browser - display what the backend sends.
-- Transaction status: `<TransactionStatus>`. Icons: lucide only, `aria-hidden` when decorative,
+- Transaction status: `<TransactionStatus>`. Icons: lucide in the product UI, Phosphor (`<Ph name="..." />`) in docs; `aria-hidden` when decorative,
   `aria-label` on icon-only buttons.
 - Merge classes with `cn()` from `@/lib/cn` (knows the custom text sizes).
 - Tailwind v4 syntax: important is a **trailing** `!` (`size-1!`), CSS variables as `h-(--header-height)`.

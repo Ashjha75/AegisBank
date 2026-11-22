@@ -24,7 +24,7 @@ The docs UI is never linked from the customer site, is password-protected, and i
 | UI runtime | React 19.3 | Ships with Next 16 |
 | Styling | Tailwind CSS 4.3, CSS-first `@theme`, OKLCH design tokens | Tokens are the single source of colour, type and motion |
 | Components | Own shadcn-style components on `radix-ui`, `class-variance-authority`, `tailwind-merge` | Accessible primitives, our own look, no copied template styling |
-| Icons | `lucide-react` | One consistent outline set |
+| Icons | `lucide-react` (product UI), `@phosphor-icons/react` (docs, illustrations) | One outline set in the app; Phosphor's banking/engineering coverage and weights for docs |
 | Motion | `motion` (`motion/react`), respects reduced motion | Small, meaningful transitions only |
 | Data | TanStack Query, `react-hook-form` + `zod` | Caching/retries for reads, typed validated forms |
 | Docs | Fumadocs (`fumadocs-ui`, `fumadocs-mdx`), Mermaid, React Flow | MDX pages with search, diagrams, an interactive architecture map |
@@ -33,23 +33,26 @@ The docs UI is never linked from the customer site, is password-protected, and i
 
 ## 3. Design system
 
-**Direction:** premium, understated banking. Calm, accessible, dependable. Light-first.
+**Direction:** premium, understated banking. Calm, accessible, dependable. One light theme (no dark mode).
+Reference for the feel: Render.com - white space, ink buttons, hairline grids.
 
-- **Colour:** midnight navy = brand/primary; deep teal = restrained interactive accent (links, focus,
-  selected); warm off-white page background; clean white surfaces. Subtle borders instead of heavy
-  shadows; restrained radii (4-12 px).
+- **Colour:** pure white pages and surfaces; near-black ink for text and primary buttons; hairline grey
+  borders; one deep green brand colour (`brand`) used sparingly for links, focus, selected states and the
+  logo. The docs UI uses a warm "paper" variant of the surfaces for long reading (`docs-theme.css`).
+  Borders instead of heavy shadows; crisp radii (6 px for buttons, inputs, cards).
 - **Money and status:** green = success / money in; amber = pending; red = failure; **a normal debit is
   neutral**. The sign (+ / −) is always text, so colour is never the only signal.
 - **Avoid:** gradients, glassmorphism, glows, oversized colourful cards, decorative illustrations,
   generic AI-dashboard patterns.
-- **Typography:** Manrope 600/700 for headings (`font-display`), Inter 400/500/600 for the whole UI
-  (`font-sans`, `numeric` = tabular figures for amounts), JetBrains Mono 400/500 only for technical
-  identifiers (`font-mono`). Loaded once with `next/font/google` (self-hosted at build time) in
+- **Typography:** IBM Plex Sans 400/500/600 for everything (`font-sans`; `font-display` is the same
+  family - headings at 500 with tight tracking; `numeric` = tabular figures for amounts), IBM Plex Mono
+  400/500 for references, IDs and code (`font-mono`). Loaded once with `next/font/google` (self-hosted at build time) in
   `src/lib/fonts.ts`. No other fonts.
-- **Tokens:** three layers in `src/styles/` - primitives → semantic light/dark (`tokens.css`) →
-  Tailwind mapping (`theme.css`). Components use semantic names only (`bg-surface`, `text-money-credit`).
-  `pnpm tokens:check` verifies WCAG AA contrast for every text/background pair in both themes.
-- **Motion:** 80-280 ms, deceleration in / acceleration out, zero under `prefers-reduced-motion`.
+- **Tokens:** three layers in `src/styles/` - primitives → semantic (`tokens.css`, docs overrides in
+  `docs-theme.css`) → Tailwind mapping (`theme.css`, which also maps shadcn/ui names). Components use
+  semantic names only (`bg-surface`, `text-money-credit`). `pnpm tokens:check` verifies WCAG AA contrast
+  for every text/background pair in the site and docs themes.
+- **Motion:** quiet and precise, 80-260 ms (420 ms page reveals), deceleration in / acceleration out, zero under `prefers-reduced-motion`.
 
 Live reference: `/v1/admin/docs-ui/frontend/design-system`.
 
