@@ -7,7 +7,6 @@ import defaultMdxComponents from "fumadocs-ui/mdx";
 import type { MDXComponents } from "mdx/types";
 import { Button } from "@/components/ui/button";
 import { Endpoint, MethodBadge, Responses } from "./api/endpoint";
-import { ArchitectureMap } from "./architecture-map";
 import { Callout } from "./blocks/callout";
 import { Decision } from "./blocks/decision";
 import { DocsCodeBlock } from "./code/code-block";
@@ -28,8 +27,10 @@ import {
   GalleryStatusPages,
 } from "./component-gallery";
 import { ColorTokens, TypeScale } from "./design-tokens";
+import { Arrow, Box, Diagram, Note } from "./diagrams/diagram";
+import { ProxyPath, SystemMap, TransferStates } from "./diagrams/library";
+import { DiagramLegend, SequenceDiagram } from "./diagrams/sequence-diagram";
 import { IconGallery, Ph } from "./icons";
-import { Mermaid } from "./mermaid";
 
 /**
  * Components available in every MDX page without importing them (full guide: Frontend > Docs toolkit).
@@ -41,7 +42,7 @@ import { Mermaid } from "./mermaid";
  *   <Accordions><Accordion title="...">                         FAQ / collapsible detail
  *   <Ph name="Vault" />  <IconGallery />                        Phosphor icons
  * Code
- *   ```ts title="x.ts"  ```bash tab="cURL"  ```npm  ```mermaid  fences (see lib/docs/source.ts)
+ *   ```ts title="x.ts"  ```bash tab="cURL"  ```npm  fences (see lib/docs/source.ts)
  *   <Example code={`...`}>live preview</Example>              Live example / Code tabs
  *   <Files><Folder name="src"><File name="a.ts" /></Folder></Files>   file tree
  * API and architecture
@@ -50,7 +51,9 @@ import { Mermaid } from "./mermaid";
  *   <TypeTable type={{ field: { type, description, required } }} />  request / DTO fields
  *   <MethodBadge method="GET" />                                inline HTTP method
  *   <Decision id="ADR-001" status="accepted" date="..." />      ADR header
- *   <Mermaid chart={`...`} /> <ArchitectureMap />               diagrams
+ *   <SequenceDiagram participants steps />                    auto-laid-out sequence
+ *   <Diagram><Box /><Arrow /></Diagram>                        hand-drawn flow (never Mermaid)
+ *   <SystemMap /> <TransferStates /> <ProxyPath />              named system diagrams
  * Design system
  *   <ColorTokens /> <TypeScale /> <Gallery... />                live component previews
  */
@@ -75,8 +78,15 @@ export function getMDXComponents(components?: MDXComponents) {
     Decision,
     Example,
     Button,
-    Mermaid,
-    ArchitectureMap,
+    Diagram,
+    Box,
+    Arrow,
+    Note,
+    DiagramLegend,
+    SequenceDiagram,
+    SystemMap,
+    TransferStates,
+    ProxyPath,
     ColorTokens,
     TypeScale,
     Ph,
