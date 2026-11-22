@@ -11,15 +11,17 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* Inter: l with tail and serifed I - tells apart l / 1 / I in account numbers and references */
-    font-feature-settings:
-      "cv05" 1,
-      "cv08" 1;
   }
 
+  /* Plex at medium weight with tight tracking reads premium; heavier weights look shouty. */
   h1,
   h2,
-  h3,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    text-wrap: balance;
+  }
+
   h4 {
     font-family: var(--font-display);
     font-weight: 600;
@@ -31,7 +33,7 @@
   }
 
   ::selection {
-    background-color: var(--accent-subtle);
+    background-color: var(--brand-subtle);
     color: var(--foreground);
   }
 

@@ -1,9 +1,13 @@
 /*
  * Layer 3: maps the semantic tokens (tokens.css) onto Tailwind utilities.
- * `inline` makes Tailwind emit var(--token) so classes follow the active light/dark theme.
+ * `inline` makes Tailwind emit var(--token), so a wrapper that re-declares a token (the docs'
+ * `.site-theme` preview) restyles everything inside it.
  *
  * Use:  bg-background  bg-surface  text-foreground  text-muted-foreground  border-border
- *       bg-primary  text-accent  ring-ring  bg-success-subtle  text-money-credit ...
+ *       bg-primary  text-brand  ring-ring  bg-success-subtle  text-money-credit ...
+ *
+ * shadcn/ui names are mapped too (card, popover, muted, accent, destructive), so components added
+ * with `pnpm dlx shadcn@latest add <name>` pick up the AegisBank look without edits.
  */
 @theme inline {
   /* Colours */
@@ -22,15 +26,18 @@
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
   --color-primary-foreground: var(--primary-foreground);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-subtle: var(--brand-subtle);
+  --color-brand-border: var(--brand-border);
+  --color-brand-foreground: var(--brand-foreground);
   --color-brand-mark-accent: var(--brand-mark-accent);
-  --color-accent: var(--accent);
-  --color-accent-hover: var(--accent-hover);
-  --color-accent-subtle: var(--accent-subtle);
-  --color-accent-foreground: var(--accent-foreground);
   --color-ring: var(--ring);
   --color-secondary: var(--secondary);
   --color-secondary-hover: var(--secondary-hover);
   --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-success-subtle: var(--success-subtle);
@@ -63,28 +70,42 @@
   --color-transparent: transparent;
   --color-current: currentColor;
 
-  /* Fonts (variables set by next/font in src/lib/fonts.ts) */
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-display:
-    var(--font-manrope), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-mono:
-    var(--font-jetbrains-mono), ui-monospace, "SFMono-Regular", monospace;
+  /* shadcn/ui aliases */
+  --color-card: var(--surface);
+  --color-card-foreground: var(--surface-foreground);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--surface-foreground);
+  --color-muted: var(--surface-subtle);
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: var(--danger-on);
+  --color-sidebar: var(--surface-subtle);
+  --color-sidebar-foreground: var(--foreground);
+  --color-sidebar-border: var(--border);
+  --color-sidebar-accent: var(--secondary-hover);
+  --color-sidebar-accent-foreground: var(--foreground);
+  --color-sidebar-ring: var(--ring);
 
-  /* Type scale - one class sets size, line height, tracking (and weight where it is fixed) */
-  --text-display: 3rem; /* 48 - hero headline only */
-  --text-display--line-height: 1.08;
-  --text-display--letter-spacing: -0.025em;
-  --text-h1: 2rem; /* 32 - page title */
-  --text-h1--line-height: 1.2;
-  --text-h1--letter-spacing: -0.02em;
+  /* Fonts (variables set by next/font in src/lib/fonts.ts). One family, Plex Sans, for headings and UI. */
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", monospace;
+
+  /* Type scale - one class sets size, line height and tracking */
+  --text-display: 3.25rem; /* 52 - hero headline only */
+  --text-display--line-height: 1.06;
+  --text-display--letter-spacing: -0.035em;
+  --text-h1: 2.125rem; /* 34 - page title */
+  --text-h1--line-height: 1.15;
+  --text-h1--letter-spacing: -0.025em;
   --text-h2: 1.5rem; /* 24 - section heading */
-  --text-h2--line-height: 1.3;
-  --text-h2--letter-spacing: -0.015em;
+  --text-h2--line-height: 1.25;
+  --text-h2--letter-spacing: -0.018em;
   --text-h3: 1.25rem; /* 20 - card / panel heading */
-  --text-h3--line-height: 1.4;
-  --text-h3--letter-spacing: -0.01em;
+  --text-h3--line-height: 1.35;
+  --text-h3--letter-spacing: -0.012em;
   --text-h4: 1.0625rem; /* 17 - small heading */
   --text-h4--line-height: 1.45;
+  --text-h4--letter-spacing: -0.006em;
   --text-body-lg: 1.0625rem; /* 17 - lead paragraphs */
   --text-body-lg--line-height: 1.6;
   --text-body: 0.9375rem; /* 15 - default UI and body text */
@@ -100,11 +121,11 @@
   --text-overline--letter-spacing: 0.08em;
   --text-amount-xl: 2.25rem; /* 36 - account balance */
   --text-amount-xl--line-height: 1.1;
-  --text-amount-xl--letter-spacing: -0.02em;
+  --text-amount-xl--letter-spacing: -0.025em;
   --text-amount: 1rem; /* 16 - amounts in lists */
   --text-amount--line-height: 1.4;
 
-  /* Elevation (theme dependent: tokens.css) */
+  /* Elevation */
   --shadow-xs: var(--elevation-xs);
   --shadow-sm: var(--elevation-sm);
   --shadow-md: var(--elevation-md);
@@ -117,7 +138,16 @@
   --animate-pop-out: pop-out var(--duration-fast) var(--ease-exit);
   --animate-dialog-in: dialog-in var(--duration-slow) var(--ease-enter);
   --animate-dialog-out: dialog-out var(--duration-fast) var(--ease-exit);
+  --animate-sheet-in-right: sheet-in-right var(--duration-slow)
+    var(--ease-enter);
+  --animate-sheet-out-right: sheet-out-right var(--duration-base)
+    var(--ease-exit);
+  --animate-sheet-in-left: sheet-in-left var(--duration-slow) var(--ease-enter);
+  --animate-sheet-out-left: sheet-out-left var(--duration-base) var(--ease-exit);
   --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-spin: spin 0.8s linear infinite;
+  --animate-indeterminate: indeterminate 1.4s var(--ease-standard) infinite;
+  --animate-dot-pulse: dot-pulse 1.2s ease-in-out infinite;
 
   @keyframes fade-in {
     from {
@@ -144,13 +174,33 @@
   @keyframes dialog-in {
     from {
       opacity: 0;
-      transform: translate(-50%, calc(-50% + 8px)) scale(0.98);
+      transform: translate(-50%, calc(-50% + 8px)) scale(0.985);
     }
   }
   @keyframes dialog-out {
     to {
       opacity: 0;
-      transform: translate(-50%, -50%) scale(0.98);
+      transform: translate(-50%, -50%) scale(0.985);
+    }
+  }
+  @keyframes sheet-in-right {
+    from {
+      transform: translateX(100%);
+    }
+  }
+  @keyframes sheet-out-right {
+    to {
+      transform: translateX(100%);
+    }
+  }
+  @keyframes sheet-in-left {
+    from {
+      transform: translateX(-100%);
+    }
+  }
+  @keyframes sheet-out-left {
+    to {
+      transform: translateX(-100%);
     }
   }
   @keyframes shimmer {
@@ -161,27 +211,45 @@
       background-position: -200% 0;
     }
   }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @keyframes indeterminate {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(250%);
+    }
+  }
+  @keyframes dot-pulse {
+    0%,
+    80%,
+    100% {
+      opacity: 0.25;
+    }
+    40% {
+      opacity: 1;
+    }
+  }
 }
 
 /* Theme-independent scales. Emitted as CSS variables too, so var(--radius-md) works anywhere. */
 @theme {
-  /* Radius: restrained, never pill-shaped by default */
-  --radius-xs: 0.125rem; /* 2px  - tags, kbd */
+  /* Radius: crisp. 6px is the workhorse; nothing is pill-shaped except avatars and dots. */
+  --radius-xs: 0.125rem; /* 2px  - kbd, tiny tags */
   --radius-sm: 0.25rem; /* 4px  - badges, checkboxes */
-  --radius-md: 0.375rem; /* 6px  - buttons, inputs */
-  --radius-lg: 0.5rem; /* 8px  - cards, popovers */
-  --radius-xl: 0.75rem; /* 12px - dialogs, large panels */
-  --radius-full: 9999px; /* avatars, status dots only */
+  --radius-md: 0.375rem; /* 6px  - buttons, inputs, cards, menus */
+  --radius-lg: 0.5rem; /* 8px  - dialogs, large panels */
+  --radius-xl: 0.75rem; /* 12px - rare: hero preview frames */
+  --radius-full: 9999px; /* avatars, status dots, switches */
 
   /* Easing */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1); /* moves within the screen */
-  --ease-enter: cubic-bezier(
-    0.05,
-    0.7,
-    0.1,
-    1
-  ); /* things arriving: decelerate */
-  --ease-exit: cubic-bezier(0.3, 0, 0.8, 0.15); /* things leaving: accelerate */
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1); /* things arriving: decelerate */
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1); /* things leaving: accelerate */
 }
 
 /* Durations as utilities: duration-fast, duration-base ... */
@@ -203,5 +271,10 @@
   font-variant-numeric: tabular-nums lining-nums;
 }
 
-/* Theme switching is class based (next-themes sets .dark on <html>). */
-@custom-variant dark (&:where(.dark, .dark *));
+/* Hairline grid backdrop (Render-style). Lines only - no gradient fills or glows. */
+@utility bg-grid {
+  background-image:
+    linear-gradient(to right, var(--border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  background-size: 2.5rem 2.5rem;
+}

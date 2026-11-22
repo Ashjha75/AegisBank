@@ -2,8 +2,9 @@
 /**
  * WCAG contrast check for the design tokens.
  *
- * Reads src/styles/tokens.css, resolves every semantic token for the light (:root) and dark (.dark)
- * themes, and checks each text/background pair below. Fails (exit 1) if any pair is under its minimum:
+ * Reads src/styles/tokens.css (the site theme) and src/styles/docs-theme.css (the docs reading theme,
+ * which overrides page surfaces and text), resolves every semantic token, and checks each
+ * text/background pair below in both. Fails (exit 1) if any pair is under its minimum:
  *   4.5 = normal text (WCAG AA), 3.0 = large text, icons and UI boundaries (WCAG AA 1.4.11).
  *
  * Run: pnpm tokens:check
@@ -14,22 +15,29 @@ import { fileURLToPath } from "node:url";
 const TOKENS = fileURLToPath(
   new URL("../src/styles/tokens.css", import.meta.url),
 );
+const DOCS_THEME = fileURLToPath(
+  new URL("../src/styles/docs-theme.css", import.meta.url),
+);
 
 /** [foreground, background, minimum ratio, what it is] */
 const PAIRS = [
   ["foreground", "background", 4.5, "body text on page"],
   ["foreground", "surface", 4.5, "body text on card"],
+  ["foreground", "surface-subtle", 4.5, "text in sidebar / table header"],
   ["muted-foreground", "background", 4.5, "secondary text on page"],
   ["muted-foreground", "surface", 4.5, "secondary text on card"],
   ["muted-foreground", "surface-subtle", 4.5, "secondary text on table header"],
   ["subtle-foreground", "surface", 3, "captions / placeholders"],
+  ["subtle-foreground", "background", 3, "captions on page"],
   ["primary-foreground", "primary", 4.5, "primary button"],
   ["primary-foreground", "primary-hover", 4.5, "primary button hover"],
-  ["accent", "surface", 4.5, "link on card"],
-  ["accent", "background", 4.5, "link on page"],
-  ["accent-foreground", "accent", 4.5, "accent button"],
-  ["accent", "accent-subtle", 4.5, "selected item text"],
-  ["secondary-foreground", "secondary", 4.5, "secondary button"],
+  ["brand", "surface", 4.5, "link on card"],
+  ["brand", "background", 4.5, "link on page"],
+  ["brand-foreground", "brand", 4.5, "brand button"],
+  ["brand-foreground", "brand-hover", 4.5, "brand button hover"],
+  ["brand", "brand-subtle", 4.5, "selected item text"],
+  ["secondary-foreground", "secondary", 4.5, "secondary fill"],
+  ["accent-foreground", "accent", 4.5, "hovered menu item"],
   ["success-foreground", "success-subtle", 4.5, "success badge / alert"],
   ["warning-foreground", "warning-subtle", 4.5, "warning badge / alert"],
   ["danger-foreground", "danger-subtle", 4.5, "error badge / alert"],
@@ -44,13 +52,13 @@ const PAIRS = [
   ["input", "surface", 3, "input border (non-text UI)"],
 ];
 
-// ---------------------------------------------------------------- parse tokens.css
+// ---------------------------------------------------------------- parse the CSS files
 
-const css = readFileSync(TOKENS, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+const stripComments = (text) => text.replace(/\/\*[\s\S]*?\*\//g, "");
 
-function block(selector) {
+function block(css, selector) {
   const start = css.indexOf(`${selector} {`);
-  if (start < 0) throw new Error(`No "${selector} {" block in tokens.css`);
+  if (start < 0) throw new Error(`No "${selector} {" block found`);
   let depth = 0;
   for (let i = css.indexOf("{", start); i < css.length; i++) {
     if (css[i] === "{") depth++;
@@ -71,8 +79,11 @@ function declarations(text) {
   return vars;
 }
 
-const light = declarations(block(":root"));
-const dark = { ...light, ...declarations(block(".dark")) };
+const rootOf = (file) =>
+  declarations(block(stripComments(readFileSync(file, "utf8")), ":root"));
+
+const site = rootOf(TOKENS);
+const docs = { ...site, ...rootOf(DOCS_THEME) };
 
 function resolve(vars, name, seen = new Set()) {
   if (seen.has(name)) throw new Error(`Circular token: ${name}`);
@@ -124,8 +135,8 @@ function contrast(a, b) {
 
 let failures = 0;
 for (const [theme, vars] of [
-  ["light", light],
-  ["dark", dark],
+  ["site", site],
+  ["docs (paper)", docs],
 ]) {
   console.log(`\n${theme} theme`);
   for (const [fg, bg, min, label] of PAIRS) {
@@ -140,7 +151,7 @@ for (const [theme, vars] of [
 
 if (failures > 0) {
   console.error(
-    `\n${failures} pair(s) below WCAG AA. Adjust src/styles/tokens.css.`,
+    `\n${failures} pair(s) below WCAG AA. Adjust src/styles/tokens.css or docs-theme.css.`,
   );
   process.exit(1);
 }

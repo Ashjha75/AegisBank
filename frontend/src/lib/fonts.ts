@@ -1,37 +1,29 @@
-import { Inter, JetBrains_Mono, Manrope } from "next/font/google";
+import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 
 /*
- * The three AegisBank fonts. next/font downloads them at build time and serves them from our own
- * origin (no request to Google at runtime). Each one is exposed as a CSS variable that
+ * The AegisBank typefaces. next/font downloads them at build time and serves them from our own
+ * origin (no request to Google at runtime). Each is exposed as a CSS variable that
  * src/styles/theme.css turns into a Tailwind family:
  *
- *   font-display  Manrope         page titles, section headings, account overview headings (600/700)
- *   font-sans     Inter           everything else in the UI, including money (with `numeric`)
- *   font-mono     JetBrains Mono  technical identifiers only: transaction IDs, references
+ *   font-sans / font-display  IBM Plex Sans  everything: headings (500), UI (400/500/600), money (`numeric`)
+ *   font-mono                 IBM Plex Mono  technical identifiers and code: references, IDs, snippets
  *
  * Don't add fonts or swap them per page. See docs/plan.md > Typography.
  */
 
-export const manrope = Manrope({
-  subsets: ["latin"],
-  weight: ["600", "700"],
-  variable: "--font-manrope",
-  display: "swap",
-});
-
-export const inter = Inter({
+export const plexSans = IBM_Plex_Sans({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
-  variable: "--font-inter",
+  variable: "--font-plex-sans",
   display: "swap",
 });
 
-export const jetbrainsMono = JetBrains_Mono({
+export const plexMono = IBM_Plex_Mono({
   subsets: ["latin"],
   weight: ["400", "500"],
-  variable: "--font-jetbrains-mono",
+  variable: "--font-plex-mono",
   display: "swap",
 });
 
 /** Put on <html> in every root layout. */
-export const fontVariables = `${manrope.variable} ${inter.variable} ${jetbrainsMono.variable}`;
+export const fontVariables = `${plexSans.variable} ${plexMono.variable}`;
