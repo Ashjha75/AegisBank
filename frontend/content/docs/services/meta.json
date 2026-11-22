@@ -1,4 +1,4 @@
 {
   "title": "Services",
-  "pages": ["account-service", "transaction-service"]
+  "pages": ["account-service", "transaction-service", "transaction-api"]
 }

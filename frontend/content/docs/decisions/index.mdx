@@ -1,0 +1,41 @@
+---
+title: Decisions
+description: Architecture Decision Records - why the system is built the way it is.
+icon: Scale
+---
+
+An **Architecture Decision Record (ADR)** captures one significant decision: the context, what was decided and
+what follows from it. ADRs are never edited after they are accepted; a new ADR **supersedes** an old one. This
+keeps the reasoning behind the code findable years later.
+
+| Record | Decision | Status |
+| --- | --- | --- |
+| [ADR-001](./adr-001-saga-for-transfers.mdx) | Transfers run as a SAGA with compensation, not one distributed transaction | Accepted |
+
+## Writing a new ADR
+
+1. Copy the template below into `content/docs/decisions/adr-NNN-short-name.mdx` and add it to `meta.json`.
+2. Start as `proposed`; switch to `accepted` (or `rejected`) once agreed.
+3. To change a decision, write a new ADR and set the old one to `superseded` with `supersededBy`.
+
+```mdx title="content/docs/decisions/adr-002-example.mdx"
+---
+title: "ADR-002: Short decision title"
+description: One sentence on what was decided.
+icon: Scale
+---
+
+<Decision id="ADR-002" status="proposed" date="2026-11-22" deciders="Backend team" />
+
+## Context
+What forces are at play? What problem needs a decision?
+
+## Decision
+What we will do, stated in full sentences.
+
+## Consequences
+What becomes easier, what becomes harder, what we must now watch.
+
+## Alternatives considered
+Each option and why it lost.
+```

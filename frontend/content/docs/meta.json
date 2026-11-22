@@ -1,4 +1,4 @@
 {
   "title": "AegisBank notes",
-  "pages": ["index", "architecture", "services", "frontend"]
+  "pages": ["index", "architecture", "services", "decisions", "frontend"]
 }

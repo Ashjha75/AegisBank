@@ -1,0 +1,230 @@
+---
+title: Transaction API
+description: Every public transaction-service endpoint - request fields, responses and error codes, checked against the code.
+icon: Webhook
+---
+
+Base URL through the gateway: `http://localhost:8080`. The frontend never calls it directly - browser code
+uses `apiFetch("/v1/transactions/...")`, which goes through the Next.js proxy (`/api/gateway/v1/**`).
+
+<Callout type="warn" title="No authentication yet">
+  The gateway doesn't check who is calling yet, so these endpoints are marked **Public**. Auth arrives with the
+  auth service; until then, run the stack only on your machine.
+</Callout>
+
+Every error is an RFC 9457 **problem+json** body with an `errorCode` the frontend branches on:
+
+```json title="Error response (400)"
+{
+  "type": "about:blank",
+  "title": "Validation failed",
+  "status": 400,
+  "detail": "One or more fields are invalid",
+  "instance": "/api/v1/transactions/transfer",
+  "errorCode": "VALIDATION_FAILED",
+  "timestamp": "2026-11-21T10:15:30Z",
+  "errors": { "amount": "Amount must be greater than zero" }
+}
+```
+
+## Transfer money
+
+<Endpoint
+  method="POST"
+  path="/api/v1/transactions/transfer"
+  auth="public"
+  status="201 Created"
+  summary="Moves money between two accounts as a SAGA."
+>
+
+The response is always `201` once the transfer is recorded - read `status` to know what happened:
+`COMPLETED`, `PENDING_VERIFICATION` (amount ≥ the OTP threshold, ₹50,000 by default - call verify-otp) or
+`FAILED` with a `failureReason` (for example insufficient balance). Nothing moves for a failed transfer.
+
+### Request body
+
+<TypeTable
+  type={{
+    senderAccountNumber: {
+      type: "string",
+      description: "12 digits, not starting with 0.",
+      required: true,
+    },
+    receiverAccountNumber: {
+      type: "string",
+      description: "12 digits, not starting with 0. Must differ from the sender.",
+      required: true,
+    },
+    amount: {
+      type: "number",
+      description: "Greater than zero; at most 13 digits and 2 decimal places.",
+      required: true,
+    },
+    description: {
+      type: "string",
+      description: "Free text shown on both statements. Up to 255 characters.",
+    },
+  }}
+/>
+
+### Example
+
+```bash tab="cURL"
+curl -X POST http://localhost:8080/api/v1/transactions/transfer \
+  -H "Content-Type: application/json" \
+  -d '{
+    "senderAccountNumber": "482100920001",
+    "receiverAccountNumber": "901200450007",
+    "amount": 25000.00,
+    "description": "Rent November"
+  }'
+```
+
+```ts tab="Frontend"
+import { apiFetch, newIdempotencyKey } from "@/lib/api/client";
+
+const transaction = await apiFetch<TransactionResponse>("/v1/transactions/transfer", {
+  method: "POST",
+  json: {
+    senderAccountNumber: "482100920001",
+    receiverAccountNumber: "901200450007",
+    amount: "25000.00",
+    description: "Rent November",
+  },
+  idempotencyKey: newIdempotencyKey(), // money moves: never retry blindly
+});
+```
+
+```json tab="201 Response"
+{
+  "id": "7f3a92c1-0b4e-4c1d-9a51-2b7e1c3d4f60",
+  "senderAccountNumber": "482100920001",
+  "receiverAccountNumber": "901200450007",
+  "amount": 25000.00,
+  "type": "TRANSFER",
+  "status": "COMPLETED",
+  "description": "Rent November",
+  "failureReason": null,
+  "referenceNumber": "TXN20261121140502...",
+  "createdAt": "2026-11-21T14:05:02",
+  "completedAt": "2026-11-21T14:05:03"
+}
+```
+
+### Responses
+
+<Responses
+  items={[
+    { status: 201, description: "Recorded. Check status: COMPLETED, PENDING_VERIFICATION or FAILED." },
+    { status: 400, code: "VALIDATION_FAILED", description: "A field is missing or invalid; see errors." },
+    { status: 502, code: "DOWNSTREAM_SERVICE_ERROR", description: "account-service was unreachable while debiting. Nothing moved." },
+  ]}
+/>
+
+</Endpoint>
+
+## Verify the OTP of a transfer
+
+<Endpoint
+  method="POST"
+  path="/api/v1/transactions/{transactionId}/verify-otp"
+  auth="public"
+  status="200 OK"
+  summary="Completes a transfer that is waiting in PENDING_VERIFICATION."
+>
+
+The code goes in the body, not the URL, so proxies don't log it. After too many wrong codes (3 by default) or
+after expiry (5 minutes by default) the transfer becomes `FLAGGED` and the sender is refunded.
+
+<TypeTable
+  type={{
+    otp: { type: "string", description: "Exactly 6 digits.", required: true },
+  }}
+/>
+
+```bash
+curl -X POST http://localhost:8080/api/v1/transactions/7f3a92c1-0b4e-4c1d-9a51-2b7e1c3d4f60/verify-otp \
+  -H "Content-Type: application/json" \
+  -d '{ "otp": "482913" }'
+```
+
+<Responses
+  items={[
+    { status: 200, description: "Right code: the receiver is credited and the transfer is COMPLETED." },
+    { status: 400, code: "VALIDATION_FAILED", description: "The OTP is not 6 digits." },
+    { status: 404, code: "RESOURCE_NOT_FOUND", description: "No transaction with that id." },
+    { status: 409, code: "INVALID_TRANSACTION_STATE", description: "The transfer is not waiting for an OTP." },
+    { status: 422, code: "INVALID_OTP", description: "Wrong code. The detail says how many attempts are left." },
+  ]}
+/>
+
+</Endpoint>
+
+## Get a transaction
+
+<Endpoint
+  method="GET"
+  path="/api/v1/transactions/{transactionId}"
+  auth="public"
+  status="200 OK"
+  summary="One transaction by its id."
+>
+
+<Responses
+  items={[
+    { status: 200, description: "The transaction (same shape as the transfer response)." },
+    { status: 404, code: "RESOURCE_NOT_FOUND", description: "No transaction with that id." },
+  ]}
+/>
+
+</Endpoint>
+
+## Transaction history of an account
+
+<Endpoint
+  method="GET"
+  path="/api/v1/transactions/account/{accountNumber}/history"
+  auth="public"
+  status="200 OK"
+  summary="Sent and received transactions of an account, newest first."
+>
+
+<Responses
+  items={[
+    { status: 200, description: "A JSON array of transactions (empty if there are none)." },
+  ]}
+/>
+
+</Endpoint>
+
+## Health
+
+<Endpoint
+  method="GET"
+  path="/api/v1/transactions/health"
+  auth="public"
+  status="200 OK"
+  summary="Quick check that the service is up and reachable through the gateway."
+/>
+
+## How a transfer flows
+
+```mermaid
+sequenceDiagram
+  participant B as Browser
+  participant G as api-gateway
+  participant T as transaction-service
+  participant A as account-service
+  B->>G: POST /api/v1/transactions/transfer
+  G->>T: forward
+  T->>T: save PENDING
+  T->>A: deduct sender (internal)
+  A-->>T: ok
+  T->>T: status PROCESSING
+  alt amount below OTP threshold
+    T->>A: credit receiver (internal)
+    T-->>B: 201 COMPLETED
+  else amount at or above threshold
+    T-->>B: 201 PENDING_VERIFICATION
+  end
+```
