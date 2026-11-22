@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   formatAccountNumber,
+  formatDate,
   formatMoney,
   maskAccountNumber,
   splitMoney,
@@ -31,5 +32,15 @@ describe("account numbers", () => {
   it("masks all but the last four digits", () => {
     expect(maskAccountNumber("123456789012")).toBe("•••• 9012");
     expect(maskAccountNumber("123")).toBe("123");
+  });
+});
+
+describe("formatDate", () => {
+  it("formats a date-only string as that calendar day", () => {
+    expect(formatDate("2026-11-21")).toBe("21 Nov 2026");
+  });
+
+  it("returns a dash for invalid input", () => {
+    expect(formatDate("not a date")).toBe("—");
   });
 });

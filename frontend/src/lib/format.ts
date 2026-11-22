@@ -74,3 +74,28 @@ export function maskAccountNumber(accountNumber: string): string {
   const digits = accountNumber.replace(/\s+/g, "");
   return digits.length <= 4 ? digits : `•••• ${digits.slice(-4)}`;
 }
+
+/**
+ * "21 Nov 2026". A date-only string ("2026-11-21") is read as that calendar day in the user's
+ * time zone - `new Date("2026-11-21")` would be UTC midnight and show the previous day west of UTC.
+ */
+export function formatDate(
+  value: string | Date,
+  locale = DEFAULT_LOCALE,
+): string {
+  let date: Date;
+  if (typeof value === "string") {
+    const dateOnly = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    date = dateOnly
+      ? new Date(
+          Number(dateOnly[1]),
+          Number(dateOnly[2]) - 1,
+          Number(dateOnly[3]),
+        )
+      : new Date(value);
+  } else {
+    date = value;
+  }
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(date);
+}
