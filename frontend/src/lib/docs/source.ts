@@ -1,4 +1,3 @@
-import { remarkMdxMermaid } from "fumadocs-core/mdx-plugins";
 import { loader } from "fumadocs-core/source";
 import { lucideIconsPlugin } from "fumadocs-core/source/lucide-icons";
 import { metaSchema, pageSchema } from "fumadocs-core/source/schema";
@@ -16,7 +15,7 @@ export const DOCS_BASE_URL = "/v1/admin/docs-ui";
  *   ```ts title="file.ts" lineNumbers      code block with a title bar and line numbers
  *   ```bash tab="cURL"  / ```ts tab="fetch"   consecutive blocks with `tab` become tabs
  *   ```npm                                 npm command shown as npm / pnpm / yarn / bun tabs
- *   ```mermaid                             rendered as a <Mermaid> diagram
+ * Diagrams are SVG components (<SequenceDiagram>, <Diagram>), never Mermaid - see AGENTS.md.
  * Code is highlighted with Shiki in one dark theme (navy blocks, see docs.css).
  */
 const docs = defineDocs({
@@ -28,7 +27,6 @@ const docs = defineDocs({
       rehypeCodeOptions: {
         themes: { light: "tokyo-night", dark: "tokyo-night" },
       },
-      remarkPlugins: [remarkMdxMermaid],
     }),
   },
   meta: { schema: metaSchema },
