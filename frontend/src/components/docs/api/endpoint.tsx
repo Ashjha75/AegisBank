@@ -49,18 +49,26 @@ export function MethodBadge({ method }: { method: HttpMethod }) {
 }
 
 function PathText({ path }: { path: string }) {
+  // Long paths wrap only after a "/" (never mid-word); {params} are highlighted.
+  const segments = path.split(/(?=\/)/);
   return (
-    <code className="break-all font-mono font-medium text-[0.95rem] text-[var(--foreground)]">
-      {path.split(/(\{[^}]+\})/g).map((part, i) =>
-        part.startsWith("{") ? (
-          // biome-ignore lint/suspicious/noArrayIndexKey: static split of a fixed string
-          <span key={i} className="text-[var(--brand)]">
-            {part}
-          </span>
-        ) : (
-          part
-        ),
-      )}
+    <code className="font-mono font-medium text-[0.95rem] text-[var(--foreground)]">
+      {segments.map((segment, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: static split of a fixed string
+        <span key={i}>
+          {i > 0 && <wbr />}
+          {segment.split(/(\{[^}]+\})/g).map((part, j) =>
+            part.startsWith("{") ? (
+              // biome-ignore lint/suspicious/noArrayIndexKey: static split of a fixed string
+              <span key={j} className="text-[var(--brand)]">
+                {part}
+              </span>
+            ) : (
+              part
+            ),
+          )}
+        </span>
+      ))}
     </code>
   );
 }
@@ -87,8 +95,10 @@ export function Endpoint({
       <div className="not-prose grid gap-3 bg-[var(--surface)] px-6 py-5">
         <div className="flex flex-wrap items-center gap-3">
           <MethodBadge method={method} />
-          <PathText path={path} />
-          <CopyText text={path} label="Copy path" />
+          <span className="inline-flex min-w-0 items-center gap-1">
+            <PathText path={path} />
+            <CopyText text={path} label="Copy path" />
+          </span>
         </div>
         {(summary || authInfo || status) && (
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[0.9375rem]">
