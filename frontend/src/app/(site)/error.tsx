@@ -1,6 +1,6 @@
 "use client";
 
-import { RotateCcw, TriangleAlert } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useEffect } from "react";
 import { StatusPage } from "@/components/feedback/status-page";
@@ -20,9 +20,7 @@ export default function SiteError({
 
   return (
     <StatusPage
-      Icon={TriangleAlert}
-      title="Something went wrong"
-      description="This page hit an unexpected problem. Your money is safe - nothing was charged or moved because of this error."
+      status="500"
       actions={
         <>
           <Button onClick={reset}>
@@ -34,7 +32,7 @@ export default function SiteError({
           </Button>
         </>
       }
-      footnote={error.digest ? `Reference: ${error.digest}` : undefined}
+      footnote={error.digest ? `Reference ${error.digest}` : undefined}
     />
   );
 }

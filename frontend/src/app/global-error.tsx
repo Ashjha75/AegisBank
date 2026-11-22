@@ -1,7 +1,7 @@
 "use client";
 
 import "@/styles/site.css";
-import { TriangleAlert } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { StatusPage } from "@/components/feedback/status-page";
 import { Button } from "@/components/ui/button";
 import { fontVariables } from "@/lib/fonts";
@@ -18,11 +18,16 @@ export default function GlobalError({
     <html lang="en-IN" className={fontVariables}>
       <body className="flex min-h-dvh flex-col">
         <StatusPage
-          Icon={TriangleAlert}
+          status="500"
           title="AegisBank is having trouble"
           description="We couldn't load the app. Your money is safe. Please try again in a moment."
-          actions={<Button onClick={reset}>Try again</Button>}
-          footnote={error.digest ? `Reference: ${error.digest}` : undefined}
+          actions={
+            <Button onClick={reset}>
+              <RotateCcw aria-hidden="true" />
+              Try again
+            </Button>
+          }
+          footnote={error.digest ? `Reference ${error.digest}` : undefined}
         />
       </body>
     </html>
