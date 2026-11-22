@@ -1,6 +1,6 @@
 import { cn } from "@/lib/cn";
 
-/** AegisBank mark: a shield holding an "A". Inherits size from font-size / className. */
+/** AegisBank mark: an ink shield holding an "A" with a green crossbar. Sized via className. */
 export function LogoMark({
   className,
   title,
@@ -38,11 +38,28 @@ export function LogoMark({
   );
 }
 
-export function Logo({ className }: { className?: string }) {
+export function Logo({
+  className,
+  inverted = false,
+}: {
+  className?: string;
+  /** Light wordmark for dark panels. */
+  inverted?: boolean;
+}) {
   return (
     <span className={cn("inline-flex items-center gap-2", className)}>
-      <LogoMark />
-      <span className="font-bold font-display text-[1.0625rem] text-foreground tracking-[-0.01em]">
+      <LogoMark
+        className={cn(
+          inverted &&
+            "[&_path:first-child]:fill-primary-foreground [&_path:nth-child(2)]:stroke-primary",
+        )}
+      />
+      <span
+        className={cn(
+          "font-display font-semibold text-[1.0625rem] tracking-[-0.02em]",
+          inverted ? "text-primary-foreground" : "text-foreground",
+        )}
+      >
         AegisBank
       </span>
     </span>

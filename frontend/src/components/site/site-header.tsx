@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 const nav = [
   { href: "#how-it-works", label: "How it works" },
@@ -9,25 +10,30 @@ const nav = [
 
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-(--z-sticky) border-border/80 border-b bg-background/85 backdrop-blur-md">
-      <div className="mx-auto flex h-(--header-height) max-w-(--container-max) items-center justify-between gap-6 px-5 sm:px-8">
+    <header className="sticky top-0 z-(--z-sticky) border-border border-b bg-background/90 backdrop-blur-md">
+      <div className="mx-auto flex h-(--header-height) max-w-(--container-max) items-center gap-8 px-5 sm:px-8">
         <Link href="/" aria-label="AegisBank home" className="rounded-sm">
           <Logo />
         </Link>
-        <nav aria-label="Main" className="hidden items-center gap-7 md:flex">
+        <nav aria-label="Main" className="hidden items-center gap-6 md:flex">
           {nav.map((item) => (
             <a
               key={item.href}
               href={item.href}
-              className="font-medium text-label text-muted-foreground transition-colors duration-fast hover:text-foreground"
+              className="text-body-sm text-muted-foreground transition-colors duration-fast hover:text-foreground"
             >
               {item.label}
             </a>
           ))}
         </nav>
-        <Badge tone="accent" dot>
-          In development
-        </Badge>
+        <div className="ml-auto flex items-center gap-3">
+          <Badge tone="brand" dot className="hidden sm:inline-flex">
+            In development
+          </Badge>
+          <Button asChild size="sm">
+            <Link href="/sign-in">Sign in</Link>
+          </Button>
+        </div>
       </div>
     </header>
   );
