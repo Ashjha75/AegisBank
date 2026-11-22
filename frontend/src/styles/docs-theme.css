@@ -1,0 +1,55 @@
+/*
+ * Docs reading theme: warm paper instead of pure white, warm ink text. Only page surfaces, text and
+ * borders change; brand, status and money colours stay the same as the site (tokens.css).
+ * Checked for WCAG AA by `pnpm tokens:check` (the "docs" theme).
+ */
+:root {
+  --paper-50: oklch(0.982 0.007 85);
+  --paper-100: oklch(0.968 0.011 85);
+  --paper-150: oklch(0.951 0.013 85);
+  --paper-200: oklch(0.933 0.015 85);
+  --paper-300: oklch(0.887 0.017 80);
+  --paper-400: oklch(0.82 0.02 80);
+  --paper-ink-500: oklch(0.53 0.014 70);
+  --paper-ink-600: oklch(0.45 0.014 70);
+  --paper-ink-900: oklch(0.27 0.01 70);
+
+  --background: var(--paper-100);
+  --foreground: var(--paper-ink-900);
+  --surface: var(--paper-50);
+  --surface-foreground: var(--paper-ink-900);
+  --surface-subtle: var(--paper-150);
+  --surface-sunken: var(--paper-200);
+  --muted-foreground: var(--paper-ink-600);
+  --subtle-foreground: var(--paper-ink-500);
+  --border: var(--paper-300);
+  --border-strong: var(--paper-400);
+  --input: oklch(0.6 0.02 75);
+  --secondary: var(--paper-150);
+  --secondary-hover: var(--paper-200);
+  --secondary-foreground: var(--paper-ink-900);
+  --accent: var(--paper-150);
+  --accent-foreground: var(--paper-ink-900);
+}
+
+/* Live component previews inside the docs render on the real (white) site surfaces. */
+.site-theme {
+  --background: var(--ink-0);
+  --foreground: var(--ink-950);
+  --surface: var(--ink-0);
+  --surface-foreground: var(--ink-950);
+  --surface-subtle: var(--ink-25);
+  --surface-sunken: var(--ink-100);
+  --muted-foreground: var(--ink-600);
+  --subtle-foreground: var(--ink-500);
+  --border: var(--ink-200);
+  --border-strong: var(--ink-300);
+  --input: oklch(0.64 0.01 250);
+  --secondary: var(--ink-50);
+  --secondary-hover: var(--ink-100);
+  --secondary-foreground: var(--ink-950);
+  --accent: var(--ink-50);
+  --accent-foreground: var(--ink-950);
+  background-color: var(--background);
+  color: var(--foreground);
+}

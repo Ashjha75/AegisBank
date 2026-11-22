@@ -9,22 +9,30 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
-/** Private docs UI (password-protected in production by src/proxy.ts). */
+/**
+ * Private docs UI (password-protected by src/proxy.ts). Light only: the warm paper reading theme
+ * (styles/docs-theme.css), so the theme switch is hidden and the theme is forced.
+ */
 export default function DocsUiLayout({
   children,
 }: LayoutProps<"/v1/admin/docs-ui">) {
   return (
     <RootProvider
       search={{ options: { api: `${DOCS_BASE_URL}/api/search` } }}
-      theme={{ defaultTheme: "light", enableSystem: false }}
+      theme={{
+        forcedTheme: "light",
+        defaultTheme: "light",
+        enableSystem: false,
+      }}
     >
       <DocsLayout
         tree={source.getPageTree()}
+        themeSwitch={{ enabled: false }}
         nav={{
           title: (
             <span className="inline-flex items-center gap-2">
               <LogoMark className="size-5" />
-              <span className="font-bold font-display tracking-[-0.01em]">
+              <span className="font-display font-semibold tracking-[-0.02em]">
                 AegisBank
               </span>
               <span className="font-normal text-fd-muted-foreground">

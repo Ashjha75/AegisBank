@@ -1,4 +1,10 @@
 {
   "title": "Frontend",
-  "pages": ["design-system", "api-and-errors", "writing-docs"]
+  "pages": [
+    "design-system",
+    "components",
+    "screens",
+    "api-and-errors",
+    "writing-docs"
+  ]
 }

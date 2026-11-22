@@ -1,0 +1,45 @@
+---
+title: Screens and patterns
+description: The app shell, sign-in and the full-page error states (400-503).
+icon: LayoutTemplate
+---
+
+## App shell
+
+The signed-in banking area uses `AppShell` (`src/components/app-shell/app-shell.tsx`): a left sidebar with the main
+sections, a slim top bar with search, help, notifications and the account menu. Below 1024 px the sidebar becomes a
+drawer. It is not wired to routes yet - the customer screens come after the backend.
+
+<GalleryAppShell />
+
+```tsx
+<AppShell active="transactions" user={user} title="Transactions" actions={<Button>Export</Button>}>
+  ...
+</AppShell>
+```
+
+## Sign in
+
+`/sign-in` is a split screen: the form on white, an ink panel with what keeps transfers safe. Validation works
+(`react-hook-form` + `zod`); submitting shows a notice because the auth service doesn't exist yet. When it does,
+`SignInForm` calls `apiFetch` and shows `userMessageFor(error)` on failure.
+
+<Callout type="warn">
+  The sign-in page is a real route but does not authenticate anyone yet. Nothing typed into it is sent anywhere.
+</Callout>
+
+## Error and status pages
+
+One component, `StatusPage`, with copy for each status in `status-presets.ts`. Every message is calm and says
+whether money was affected.
+
+<GalleryStatusPages />
+
+| Status | Where it shows |
+| --- | --- |
+| 404 | Any unknown URL (`src/app/not-found.tsx`) |
+| 500 | A page crashes (`src/app/(site)/error.tsx`, `global-error.tsx`) |
+| 400, 401, 403, 429, 502, 503 | Ready for API responses: `<StatusPage status="503" actions={...} />` |
+
+Expected API errors inside a page (validation, insufficient balance) are **not** full-page states: show them inline
+with `<Alert>` or under the field (see [API and errors](./api-and-errors.mdx)).

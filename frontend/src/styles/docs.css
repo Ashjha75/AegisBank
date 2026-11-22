@@ -1,12 +1,13 @@
 /*
  * Stylesheet for the docs UI (/v1/admin/docs-ui). Tailwind keeps its default scales here because
- * Fumadocs' own components use them; our tokens are layered on top and Fumadocs' colours are
- * re-pointed at them, so the docs share the AegisBank look.
+ * Fumadocs' own components use them; our tokens are layered on top, the page surfaces switch to the
+ * warm "paper" reading theme (docs-theme.css), and Fumadocs' colours are re-pointed at our tokens.
  */
 @import "tailwindcss";
 @import "fumadocs-ui/css/neutral.css";
 @import "fumadocs-ui/css/preset.css";
 @import "./tokens.css";
+@import "./docs-theme.css";
 @import "./theme.css";
 @import "./base.css";
 
@@ -14,9 +15,8 @@
 @source "../components";
 @source "../../content";
 
-/* Fumadocs colour slots -> AegisBank semantic tokens (light and dark follow automatically). */
-:root,
-.dark {
+/* Fumadocs colour slots -> AegisBank semantic tokens. The docs are light-only. */
+:root {
   --color-fd-background: var(--background);
   --color-fd-foreground: var(--foreground);
   --color-fd-muted: var(--surface-subtle);
@@ -26,11 +26,11 @@
   --color-fd-card: var(--surface);
   --color-fd-card-foreground: var(--surface-foreground);
   --color-fd-border: var(--border);
-  --color-fd-primary: var(--accent);
-  --color-fd-primary-foreground: var(--accent-foreground);
+  --color-fd-primary: var(--brand);
+  --color-fd-primary-foreground: var(--brand-foreground);
   --color-fd-secondary: var(--secondary);
   --color-fd-secondary-foreground: var(--secondary-foreground);
-  --color-fd-accent: var(--accent-subtle);
+  --color-fd-accent: var(--accent);
   --color-fd-accent-foreground: var(--foreground);
   --color-fd-ring: var(--ring);
   --color-fd-info: var(--info);
@@ -39,12 +39,75 @@
   --color-fd-success: var(--success);
 }
 
-/* Headings in docs content use the display face, like the rest of the product. */
+/* ---------------------------------------------------------------- Reading typography */
+
+/* Long-form text: a touch larger, generous leading, comfortable line length. */
+.prose {
+  font-size: 1rem;
+  line-height: 1.75;
+  color: var(--foreground);
+}
+
+.prose :where(p, li) {
+  color: color-mix(in oklch, var(--foreground) 90%, var(--background));
+}
+
 .prose :where(h1, h2, h3, h4) {
   font-family: var(--font-display);
+  color: var(--foreground);
   letter-spacing: -0.015em;
+}
+
+.prose :where(h2) {
+  font-weight: 500;
+  margin-top: 2.5em;
+  padding-top: 1.25em;
+  border-top: 1px solid var(--border);
+}
+
+.prose :where(h3) {
+  font-weight: 600;
+}
+
+.prose :where(a):not(:where(.not-prose *)) {
+  color: var(--brand);
+  text-decoration-color: color-mix(in oklch, var(--brand) 35%, transparent);
+  text-underline-offset: 3px;
+  font-weight: 500;
+}
+
+.prose :where(a):not(:where(.not-prose *)):hover {
+  text-decoration-color: var(--brand);
 }
 
 .prose :where(code):not(:where(pre code)) {
   font-family: var(--font-mono);
+  font-size: 0.875em;
+  padding: 0.1em 0.35em;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background-color: var(--surface-sunken);
+}
+
+.prose :where(pre, code, kbd, samp) {
+  font-family: var(--font-mono);
+}
+
+.prose :where(blockquote) {
+  border-left-color: var(--brand-border);
+  color: var(--muted-foreground);
+  font-style: normal;
+}
+
+.prose :where(table) {
+  font-size: 0.9375rem;
+}
+
+.prose :where(th) {
+  font-weight: 600;
+}
+
+/* Sidebar and nav labels read better in Plex at a slightly smaller size. */
+#nd-sidebar {
+  font-size: 0.875rem;
 }

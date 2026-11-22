@@ -1,0 +1,141 @@
+---
+title: Component kit
+description: Every building block in src/components/ui, live and interactive - buttons, forms, filters, tables, modals, alerts and loaders.
+icon: Blocks
+---
+
+The components live in `src/components/ui`. They follow shadcn/ui conventions (Radix primitives,
+`class-variance-authority` variants, `cn()` for class merging), styled with AegisBank tokens only.
+Import them with `@/components/ui/<name>`.
+
+<Callout type="info">
+  The previews below are real components on the white site theme. Click, type, open menus - they behave
+  exactly as they will in the app.
+</Callout>
+
+## Buttons
+
+<GalleryButtons />
+
+```tsx
+<Button>Send money</Button>
+<Button variant="secondary">Cancel</Button>
+<Button variant="brand">Confirm transfer</Button>
+<Button loading>Saving</Button>
+<Button asChild><Link href="/sign-in">Sign in</Link></Button>
+```
+
+## Inputs and forms
+
+`<Field>` wires label, hint and error to the control for screen readers. Inputs, selects, checkboxes, radios and
+switches share one 38 px height and focus ring.
+
+<GalleryForms />
+
+```tsx
+<Field label="Amount" hint="Transfers of ₹50,000 or more need a one-time code" error={errors.amount?.message}>
+  <InputGroup start={<IndianRupee />} end="INR">
+    <Input inputMode="decimal" {...register("amount")} />
+  </InputGroup>
+</Field>
+```
+
+## DataTable
+
+`<DataTable>` (`src/components/ui/data-table.tsx`) is the one table for every list. You describe the **columns**
+(label + how a cell renders) and pass the **data**; it adds the **S.N.** column, sorting, optional row selection,
+loading and empty states, and **pagination with rows-per-page**. S.N. always continues across pages: with 50 per
+page, page 2 starts at 51; with 10 per page, page 2 starts at 11.
+
+Filters are **not** part of the table. Filter the rows (or the API query) in the page and pass the result - the
+example below does exactly that with a search box, chips and three `SearchableSelect` filters.
+
+<GalleryDataTable />
+
+```tsx
+const columns: DataTableColumn<Transaction>[] = [
+  { key: "date", header: "Date", sortable: true, cell: (t) => formatDate(t.date) },
+  { key: "counterparty", header: "Details" },                 // no cell: shows row.counterparty
+  { key: "amount", header: "Amount", align: "right", sortable: true,
+    sortValue: (t) => Number(t.amount), cell: (t) => <Amount value={t.amount} /> },
+];
+
+// Client paging: pass every row
+<DataTable columns={columns} data={rows} getRowKey={(t) => t.id} />
+
+// Server paging: pass one page + the total from the API
+<DataTable columns={columns} data={page.items} total={page.total}
+           page={pageNo} onPageChange={setPageNo} pageSize={size} onPageSizeChange={setSize} />
+```
+
+<GalleryDataTableStates />
+
+| Prop | What it does |
+| --- | --- |
+| `columns` | `key`, `header`, optional `cell`, `align`, `sortable`, `sortValue`, `className` |
+| `data` / `getRowKey` | The rows and a stable id for each |
+| `pageSize`, `pageSizeOptions` | Rows per page (default 10; options 10, 25, 50, 100) |
+| `total`, `page`, `onPageChange`, `onPageSizeChange` | Server-side paging |
+| `sort`, `onSortChange` | Server-side sorting (without them the table sorts itself) |
+| `selectable`, `selectedKeys`, `onSelectionChange` | Checkbox column |
+| `showSerialNumber`, `serialNumberLabel` | S.N. column (on by default) |
+| `loading`, `empty`, `onRowClick` | States and row click |
+
+Right-align money columns and always render money with `<Amount>`. The browser only sorts and displays amounts the
+backend sent - it never calculates with them.
+
+## SearchableSelect
+
+A searchable dropdown for filters and form fields: type to narrow the list, pick one or several, keyboard friendly.
+
+<GallerySearchableSelect />
+
+```tsx
+<SearchableSelect label="Status" multiple options={statusOptions} value={statuses} onChange={setStatuses} />
+<Field label="Pay to">
+  <SearchableSelect variant="field" label="Payee" options={payees} value={payee} onChange={setPayee} />
+</Field>
+```
+
+## Ready-made blocks
+
+<GalleryReusableBlocks />
+
+| Component | Use |
+| --- | --- |
+| `ConfirmDialog` | Any "are you sure?" step. `onConfirm` can be async; tones `primary`, `brand`, `danger` |
+| `StatCard` | A figure with its label: balances, monthly totals (loading state included) |
+| `PageHeader` | Breadcrumb, title, description and page actions |
+| `Stagger` / `StaggerItem` | Reveal a group one item after another (`Reveal` for a single block) |
+
+## Modals, drawers and menus
+
+<GalleryOverlays />
+
+| Use | Component |
+| --- | --- |
+| Confirm a money movement, enter an OTP | `Dialog` |
+| Transaction details, longer forms, mobile filters | `Sheet` (drawer) |
+| Row or page actions | `DropdownMenu` |
+| Filter panel anchored to a button | `Popover` |
+| Short hint (never essential information) | `Tooltip` |
+
+## Alerts, toasts and badges
+
+<GalleryFeedback />
+
+## Loaders
+
+<GalleryLoaders />
+
+## Navigation
+
+<GalleryNavigation />
+
+## Adding a component
+
+1. Prefer composing existing components.
+2. For a new primitive, run `pnpm dlx shadcn@latest add <name>` inside the dev container or copy it from
+   [ui.shadcn.com](https://ui.shadcn.com) into `src/components/ui`. Its classes (`bg-popover`, `bg-accent`,
+   `text-muted-foreground` ...) already map to AegisBank tokens.
+3. Replace any raw colour or default Tailwind size with a token class, then add a preview here.

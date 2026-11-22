@@ -9,7 +9,7 @@ const groups: { title: string; swatches: Swatch[] }[] = [
   {
     title: "Surfaces",
     swatches: [
-      { token: "background", use: "Page (warm off-white)" },
+      { token: "background", use: "Page (white on the site, paper in docs)" },
       { token: "surface", use: "Cards, tables, inputs" },
       { token: "surface-subtle", use: "Table header, hover row" },
       { token: "surface-sunken", use: "Skeletons, wells" },
@@ -22,15 +22,20 @@ const groups: { title: string; swatches: Swatch[] }[] = [
     swatches: [
       {
         token: "primary",
-        use: "Brand, primary buttons",
+        use: "Ink: primary buttons, text",
         text: "primary-foreground",
       },
       {
+        token: "brand",
+        use: "Links, focus, selected (deep green)",
+        text: "brand-foreground",
+      },
+      { token: "brand-subtle", use: "Selected background", text: "brand" },
+      {
         token: "accent",
-        use: "Links, focus, selected",
+        use: "Hovered item (shadcn)",
         text: "accent-foreground",
       },
-      { token: "accent-subtle", use: "Selected background", text: "accent" },
       {
         token: "secondary",
         use: "Secondary buttons",
@@ -125,28 +130,28 @@ const typeScale: {
     cls: "text-display",
     name: "display",
     spec: "48 / 1.08",
-    font: "font-display font-bold",
+    font: "font-display font-medium",
     sample: "Banking that checks",
   },
   {
     cls: "text-h1",
     name: "h1",
     spec: "32 / 1.2",
-    font: "font-display font-semibold",
+    font: "font-display font-medium",
     sample: "Accounts overview",
   },
   {
     cls: "text-h2",
     name: "h2",
     spec: "24 / 1.3",
-    font: "font-display font-semibold",
+    font: "font-display font-medium",
     sample: "Recent transfers",
   },
   {
     cls: "text-h3",
     name: "h3",
     spec: "20 / 1.4",
-    font: "font-display font-semibold",
+    font: "font-display font-medium",
     sample: "Confirm transfer",
   },
   {

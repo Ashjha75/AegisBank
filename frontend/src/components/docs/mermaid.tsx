@@ -143,8 +143,8 @@ function tokenColours() {
     border: read("border-strong"),
     primary: read("primary"),
     primaryForeground: read("primary-foreground"),
-    accent: read("accent"),
-    accentSubtle: read("accent-subtle"),
+    accent: read("brand"),
+    accentSubtle: read("brand-subtle"),
     warningSubtle: read("warning-subtle"),
     warningBorder: read("warning-border"),
   };

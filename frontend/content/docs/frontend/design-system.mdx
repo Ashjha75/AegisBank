@@ -1,67 +1,90 @@
 ---
 title: Design system
-description: Colours, typography, spacing, components and motion for AegisBank - live from the real tokens.
+description: Colour, typography, icons, shape and motion for AegisBank - rendered live from the real tokens.
 icon: Palette
 ---
 
-AegisBank should feel like a serious financial product: **premium, calm, accessible, dependable**. Light-first,
-midnight navy for the brand, deep teal used sparingly for interaction, warm off-white pages and white surfaces.
-Borders separate things; shadows are kept for floating layers. Motion is small and only where it helps.
+AegisBank should feel like a serious financial product: **precise, calm, trustworthy**. One light theme -
+pure white pages, near-black **ink** for text and primary actions, hairline grey borders, and a single
+**deep green** used sparingly for links, focus, selected states and the logo. Borders separate things;
+shadows only lift what floats (menus, dialogs). No gradients, glows or decorative illustrations.
 
-Everything on this page is rendered from the same tokens the app uses (`src/styles/tokens.css`).
+These docs use a warm **paper** variant of the same tokens for comfortable long reading. Component previews
+switch back to the real white site surfaces, so what you see there is what customers will see.
+
+Everything below is rendered from `src/styles/tokens.css` and `src/styles/docs-theme.css`.
 
 ## Colour
 
-Components use **semantic** tokens (what a colour means), never the raw scales. Each pair is checked for WCAG AA
-contrast in both themes by `pnpm tokens:check`.
+Components use **semantic** tokens (what a colour means), never the raw scales. `pnpm tokens:check` verifies
+WCAG AA contrast for every text/background pair in both the site and the docs theme.
 
 <ColorTokens />
 
 <Callout title="Money colours" type="info">
   Green means money came in or something succeeded, amber means not settled yet, red means it failed. A normal
-  debit stays **neutral** - paying rent is not an error. The sign (+ / −) is always written, so colour is never the
-  only signal.
+  debit stays **neutral** - paying rent is not an error. The sign (+ / −) is always written, so colour is never
+  the only signal.
 </Callout>
+
+### shadcn/ui compatible
+
+The Tailwind theme also maps shadcn's token names (`card`, `popover`, `muted`, `accent`, `destructive`,
+`sidebar-*`), so a component added with `pnpm dlx shadcn@latest add <name>` picks up the AegisBank look
+without edits. Note the meaning of two names:
+
+| Class | Means here |
+| --- | --- |
+| `bg-accent` | Hovered / highlighted item background (shadcn's meaning) |
+| `text-brand`, `bg-brand` | The deep green brand colour |
 
 ## Typography
 
-Three fonts, one system:
+One family, **IBM Plex**, with a technical, institutional character:
 
 | Font | Used for | Weights |
 | --- | --- | --- |
-| **Manrope** (`font-display`) | Page titles, section headings, account overview headings | 600, 700 |
-| **Inter** (`font-sans`) | All UI: body, navigation, buttons, forms, tables, amounts | 400, 500, 600 |
-| **JetBrains Mono** (`font-mono`) | Technical identifiers only: transaction IDs, references | 400, 500 |
+| **IBM Plex Sans** (`font-sans`, `font-display`) | Everything: headings at 500 with tight tracking, UI at 400-600 | 400, 500, 600 |
+| **IBM Plex Mono** (`font-mono`) | References, IDs, account numbers in detail views, code | 400, 500 |
 
 Money always uses tabular numbers (`numeric` class or the `<Amount>` component) so digits line up in columns.
 
 <TypeScale />
 
-## Components
+## Icons
 
-<ComponentGallery />
+Two libraries, each with a job:
 
-## Spacing, radius, elevation
+- **[Lucide](https://lucide.dev)** - every icon in the product UI (buttons, navigation, forms). 16 px in dense UI,
+  20 px in navigation; stroke 1.75 for feature icons. Decorative icons get `aria-hidden`; icon-only buttons need an
+  `aria-label`.
+- **[Phosphor](https://phosphoricons.com)** - docs, diagrams and feature illustrations. Six weights, strong
+  banking and engineering coverage. In MDX: <Ph name="Vault" /> `<Ph name="Vault" />`,
+  <Ph name="Database" weight="duotone" className="text-brand" /> `<Ph name="Database" weight="duotone" />`.
 
-- **Spacing**: 4 px grid (Tailwind spacing). Common steps: 8, 12, 16, 24, 32, 48, 64.
-- **Radius**: `xs` 2 · `sm` 4 (badges) · `md` 6 (buttons, inputs) · `lg` 8 (cards) · `xl` 12 (dialogs). Nothing is pill-shaped by default.
-- **Elevation**: cards use a 1 px border. `shadow-md` for menus and popovers, `shadow-lg` for dialogs only.
+<IconGallery />
+
+## Shape, spacing, elevation
+
+- **Radius**: crisp. `sm` 4 px (badges, checkboxes) · `md` **6 px** (buttons, inputs, cards, menus) · `lg` 8 px
+  (dialogs) · `xl` 12 px (rare: hero frames). Only avatars, dots and switches are round.
+- **Spacing**: 4 px grid. Common steps: 8, 12, 16, 24, 32, 48, 64.
+- **Elevation**: cards and tables use a 1 px border. `shadow-xs` on controls, `shadow-md` on menus and popovers,
+  `shadow-lg` on dialogs and sheets only.
 
 ## Motion
 
+Quiet and precise: things move only to explain what changed.
+
 | Token | Duration | Used for |
 | --- | --- | --- |
-| `duration-instant` | 80 ms | Press feedback |
+| `duration-instant` | 80 ms | Press feedback (buttons scale to 98.5 %) |
 | `duration-fast` | 140 ms | Hover, colour changes |
-| `duration-base` | 200 ms | Popovers, tooltips, toasts |
-| `duration-slow` | 280 ms | Dialogs, drawers |
-| `duration-slower` | 420 ms | Page-level reveals (hero only) |
+| `duration-base` | 200 ms | Popovers, tooltips, toasts, switches |
+| `duration-slow` | 260 ms | Dialogs, sheets |
+| `duration-slower` | 420 ms | Page-level reveals (hero, section headers) |
 
-Entering things decelerate (`ease-enter`), leaving things accelerate (`ease-exit`). With "reduce motion" turned on
-in the OS, every duration becomes 0 and Motion components skip their animation.
+Entering things decelerate (`ease-enter`), leaving things accelerate (`ease-exit`). With "reduce motion" turned
+on in the OS, every duration becomes 0 and Motion components skip their animation.
 
-## Icons
-
-[Lucide](https://lucide.dev) only, outline style. Sizes: 16 px in dense UI and buttons, 20 px in navigation,
-24 px for feature icons. Stroke width 1.75 for feature icons, the default elsewhere. Decorative icons get
-`aria-hidden`; an icon-only button needs an `aria-label`.
+Next: the [component kit](./components.mdx) and [screens](./screens.mdx).
