@@ -1,7 +1,11 @@
 /*
  * Stylesheet for the docs UI (/v1/admin/docs-ui). Tailwind keeps its default scales here because
- * Fumadocs' own components use them; our tokens are layered on top, the page surfaces switch to the
- * warm "paper" reading theme (docs-theme.css), and Fumadocs' colours are re-pointed at our tokens.
+ * Fumadocs' own components use them; our tokens are layered on top, the "sage" reading theme
+ * (docs-theme.css) replaces the page surfaces, and Fumadocs' colours are re-pointed at our tokens.
+ *
+ * Look: cream page, sage surfaces, pill-shaped controls (search, nav items, tabs), generously rounded
+ * cards, navy code blocks. Selectors target the Fumadocs notebook layout (#nd-subnav, #nd-sidebar,
+ * #nd-page, #nd-toc) and never the live component previews (.site-theme).
  */
 @import "tailwindcss";
 @import "fumadocs-ui/css/neutral.css";
@@ -15,22 +19,28 @@
 @source "../components";
 @source "../../content";
 
+/* Docs only: rounder large radius (cards, callouts, code). Small radii stay as on the site. */
+@theme {
+  --radius-xl: 1.5rem;
+  --radius-2xl: 1.75rem;
+}
+
 /* Fumadocs colour slots -> AegisBank semantic tokens. The docs are light-only. */
 :root {
   --color-fd-background: var(--background);
   --color-fd-foreground: var(--foreground);
   --color-fd-muted: var(--surface-subtle);
   --color-fd-muted-foreground: var(--muted-foreground);
-  --color-fd-popover: var(--surface);
-  --color-fd-popover-foreground: var(--surface-foreground);
+  --color-fd-popover: var(--popover-surface);
+  --color-fd-popover-foreground: var(--foreground);
   --color-fd-card: var(--surface);
   --color-fd-card-foreground: var(--surface-foreground);
   --color-fd-border: var(--border);
   --color-fd-primary: var(--brand);
   --color-fd-primary-foreground: var(--brand-foreground);
-  --color-fd-secondary: var(--secondary);
+  --color-fd-secondary: var(--surface);
   --color-fd-secondary-foreground: var(--secondary-foreground);
-  --color-fd-accent: var(--accent);
+  --color-fd-accent: var(--secondary-hover);
   --color-fd-accent-foreground: var(--foreground);
   --color-fd-ring: var(--ring);
   --color-fd-info: var(--info);
@@ -39,75 +49,423 @@
   --color-fd-success: var(--success);
 }
 
+/* ---------------------------------------------------------------- Top bar */
+
+#nd-subnav {
+  background-color: var(--background);
+  backdrop-filter: none;
+}
+
+#nd-subnav [data-header-body] {
+  height: 4.25rem;
+  gap: 1rem;
+  border-color: var(--border);
+}
+
+.docs-version-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 1.75rem;
+  padding: 0 0.75rem;
+  border-radius: 9999px;
+  background-color: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
+/* Search: a wide sage pill. */
+#nd-subnav button[data-search-full] {
+  height: 2.75rem;
+  max-width: 30rem;
+  border: 0;
+  border-radius: 9999px;
+  padding-inline: 1.125rem;
+  gap: 0.75rem;
+  background-color: var(--surface);
+  color: var(--muted-foreground);
+  font-size: 0.9375rem;
+}
+
+#nd-subnav button[data-search-full]:hover {
+  background-color: var(--surface-sunken);
+}
+
+#nd-subnav button[data-search-full] kbd {
+  border-radius: 9999px;
+  background-color: var(--background);
+  border-color: transparent;
+}
+
+/* Top links: dark, medium weight; active in olive. */
+#nd-subnav a[data-active] {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--foreground);
+  padding: 0.5rem 0.75rem;
+  border-radius: 9999px;
+}
+
+#nd-subnav a[data-active]:hover {
+  background-color: var(--surface);
+}
+
+#nd-subnav a[data-active="true"] {
+  background-color: var(--surface);
+  color: var(--brand);
+}
+
+/* ---------------------------------------------------------------- Sidebar */
+
+#nd-sidebar {
+  font-size: 0.9375rem;
+}
+
+.docs-shortcuts {
+  display: grid;
+  gap: 0.125rem;
+  padding: 1rem 1rem 1rem;
+  margin-bottom: 0.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.docs-shortcut {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.55rem 0.875rem;
+  border-radius: 9999px;
+  font-weight: 500;
+  color: var(--foreground);
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+.docs-shortcut:hover {
+  background-color: var(--surface);
+}
+
+/* Page-tree items: pills. */
+#nd-sidebar a[data-active],
+#nd-sidebar button[aria-expanded] {
+  border-radius: 9999px;
+  padding: 0.5rem 0.875rem;
+  color: var(--muted-foreground);
+}
+
+#nd-sidebar a[data-active]:hover,
+#nd-sidebar button[aria-expanded]:hover {
+  background-color: var(--surface);
+  color: var(--foreground);
+}
+
+#nd-sidebar a[data-active="true"] {
+  background-color: var(--surface);
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+#nd-sidebar a[data-active="true"]::before {
+  display: none;
+}
+
+/* Folder headings ("Services", "Frontend") read as section titles. */
+#nd-sidebar button[aria-expanded] {
+  color: var(--foreground);
+  font-weight: 600;
+  margin-top: 0.75rem;
+}
+
+/* No guide line; indent children instead. */
+#nd-sidebar div[data-state]::before {
+  display: none;
+}
+
+#nd-sidebar div[data-state] > * {
+  padding-inline-start: 0.5rem;
+}
+
+/* ---------------------------------------------------------------- Page */
+
+#nd-page {
+  gap: 1.25rem;
+}
+
+#nd-page > h1 {
+  font-size: 2.375rem;
+  line-height: 1.12;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+
+#nd-page > h1 + p {
+  font-size: 1.125rem;
+  color: var(--muted-foreground);
+}
+
+.docs-page-fallback {
+  display: grid;
+  gap: 0.75rem;
+  padding: 3.5rem 2rem;
+  max-width: 900px;
+}
+
+.docs-page-fallback > div {
+  background-color: var(--surface);
+}
+
+/* Previous / next as big sage cards, under a "Next steps" heading. */
+#nd-page > .\@container {
+  margin-top: 2.5rem;
+  gap: 1rem;
+}
+
+#nd-page > .\@container::before {
+  content: "Next steps";
+  grid-column: 1 / -1;
+  font-size: 1.5rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+}
+
+#nd-page > .\@container > a {
+  border: 0;
+  border-radius: var(--radius-card);
+  padding: 1.5rem 1.75rem;
+  background-color: var(--surface);
+  font-size: 1.0625rem;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+#nd-page > .\@container > a:hover {
+  background-color: var(--surface-sunken);
+}
+
+/* Table of contents */
+#nd-toc a {
+  font-size: 0.8125rem;
+}
+
 /* ---------------------------------------------------------------- Reading typography */
 
-/* Long-form text: a touch larger, generous leading, comfortable line length. */
 .prose {
-  font-size: 1rem;
+  font-size: 1.0625rem;
   line-height: 1.75;
   color: var(--foreground);
 }
 
-.prose :where(p, li) {
-  color: color-mix(in oklch, var(--foreground) 90%, var(--background));
+.prose :where(p, li):not(:where(.not-prose *)) {
+  color: color-mix(in oklch, var(--foreground) 88%, var(--background));
 }
 
-.prose :where(h1, h2, h3, h4) {
+.prose :where(h1, h2, h3, h4):not(:where(.not-prose *)) {
   font-family: var(--font-display);
   color: var(--foreground);
-  letter-spacing: -0.015em;
+  letter-spacing: -0.018em;
 }
 
-.prose :where(h2) {
+.prose :where(h2):not(:where(.not-prose *)) {
+  font-size: 1.625rem;
   font-weight: 500;
-  margin-top: 2.5em;
-  padding-top: 1.25em;
-  border-top: 1px solid var(--border);
+  margin-top: 2.75em;
 }
 
-.prose :where(h3) {
+.prose :where(h3):not(:where(.not-prose *)) {
   font-weight: 600;
 }
 
 .prose :where(a):not(:where(.not-prose *)) {
   color: var(--brand);
-  text-decoration-color: color-mix(in oklch, var(--brand) 35%, transparent);
-  text-underline-offset: 3px;
-  font-weight: 500;
+  text-decoration-color: color-mix(in oklch, var(--brand) 40%, transparent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+  font-weight: 600;
+}
+
+/* Heading anchors keep the heading colour. */
+.prose :where(h1, h2, h3, h4) a {
+  color: inherit;
+  font-weight: inherit;
+  text-decoration: none;
 }
 
 .prose :where(a):not(:where(.not-prose *)):hover {
   text-decoration-color: var(--brand);
 }
 
-.prose :where(code):not(:where(pre code)) {
+.prose :where(code):not(:where(pre code, .not-prose *)) {
   font-family: var(--font-mono);
-  font-size: 0.875em;
-  padding: 0.1em 0.35em;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xs);
-  background-color: var(--surface-sunken);
+  font-size: 0.86em;
+  font-weight: 500;
+  padding: 0.15em 0.45em;
+  border: 0;
+  border-radius: 0.5rem;
+  background-color: var(--surface);
 }
 
 .prose :where(pre, code, kbd, samp) {
   font-family: var(--font-mono);
 }
 
-.prose :where(blockquote) {
-  border-left-color: var(--brand-border);
+.prose :where(blockquote):not(:where(.not-prose *)) {
+  border-left: 3px solid var(--brand-border);
   color: var(--muted-foreground);
   font-style: normal;
 }
 
-.prose :where(table) {
+/* Tables: rounded sage frame. */
+.prose :where(table):not(:where(.not-prose *)) {
   font-size: 0.9375rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
 }
 
-.prose :where(th) {
+.prose :where(thead th):not(:where(.not-prose *)) {
+  background-color: var(--surface);
   font-weight: 600;
 }
 
-/* Sidebar and nav labels read better in Plex at a slightly smaller size. */
-#nd-sidebar {
+.prose :where(th, td):not(:where(.not-prose *)) {
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.prose :where(tbody tr:last-child td):not(:where(.not-prose *)) {
+  border-bottom: 0;
+}
+
+/* ---------------------------------------------------------------- Code blocks (navy) */
+
+#nd-page figure.shiki:not(.site-theme *) {
+  border: 0;
+  border-radius: var(--radius-card);
+  background-color: var(--code-surface);
+  color: oklch(0.9 0.02 260);
+  box-shadow: 0 1px 0 0 oklch(1 0 0 / 0.04) inset;
+}
+
+/* Title bar ("app.ts") */
+#nd-page figure.shiki:not(.site-theme *) > div:first-child:has(figcaption) {
+  height: 2.75rem;
+  padding-inline: 1.25rem;
+  border-color: var(--code-line);
+  color: oklch(0.78 0.03 260);
+}
+
+#nd-page figure.shiki:not(.site-theme *) pre {
   font-size: 0.875rem;
+  line-height: 1.7;
+}
+
+/* Room on both sides; Fumadocs draws the line-number column itself. */
+#nd-page figure.shiki:not(.site-theme *) > div:last-child {
+  padding-inline: 0.75rem;
+}
+
+/* Line numbers */
+#nd-page figure.shiki:not(.site-theme *) .line::before {
+  color: oklch(1 0 0 / 0.28);
+}
+
+/* Copy / expand buttons */
+#nd-page figure.shiki:not(.site-theme *) button {
+  color: oklch(0.85 0.02 260);
+  border-radius: 0.625rem;
+}
+
+#nd-page figure.shiki:not(.site-theme *) button:hover {
+  background-color: oklch(1 0 0 / 0.08);
+  color: oklch(1 0 0);
+}
+
+#nd-page figure.shiki:not(.site-theme *) .absolute {
+  backdrop-filter: none;
+  background: transparent;
+}
+
+/* Expanded (full-screen) code block */
+#nd-page figure.shiki[data-expanded="true"] {
+  position: fixed;
+  inset: 1.5rem;
+  z-index: 60;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+#nd-page figure.shiki[data-expanded="true"] > div:last-child {
+  max-height: none;
+  flex: 1;
+}
+
+.docs-code-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 59;
+  background-color: oklch(0.2 0.02 115 / 0.55);
+}
+
+/* ---------------------------------------------------------------- Tabs (MDX <Tabs> and code tabs) */
+
+#nd-page [role="tablist"]:not(:where(.site-theme *)) {
+  display: inline-flex;
+  width: fit-content;
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 9999px;
+  background-color: var(--background);
+  overflow: hidden;
+}
+
+#nd-page [role="tab"]:not(:where(.site-theme *)) {
+  padding: 0.5rem 1.125rem;
+  border: 0;
+  border-radius: 0;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+#nd-page [role="tab"]:not(:where(.site-theme *)) + [role="tab"] {
+  border-inline-start: 1px solid var(--border-strong);
+}
+
+#nd-page [role="tab"][data-state="active"]:not(:where(.site-theme *)) {
+  background-color: var(--surface-sunken);
+  color: var(--foreground);
+}
+
+#nd-page [role="tab"][data-state="active"]:not(:where(.site-theme *))::before {
+  content: "✓";
+  margin-inline-end: 0.5rem;
+  font-weight: 600;
+}
+
+/* Fumadocs tab containers: no extra frame - the pill tabs float above the content. */
+#nd-page div:has(> [role="tablist"]):not(:where(.site-theme *)) {
+  border: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+#nd-page
+  div:has(> [role="tablist"]):not(:where(.site-theme *))
+  > [role="tabpanel"] {
+  padding: 0;
+  margin-top: 0.875rem;
+  background: transparent;
+}
+
+/* ---------------------------------------------------------------- Fumadocs cards, steps, accordions, files */
+
+#nd-page a[data-card]:not(:where(h1 *, h2 *, h3 *, h4 *)) {
+  border: 0;
+  border-radius: var(--radius-card);
+  background-color: var(--surface);
+  padding: 1.25rem 1.5rem;
 }

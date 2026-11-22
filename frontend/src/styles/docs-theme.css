@@ -1,35 +1,58 @@
 /*
- * Docs reading theme: warm paper instead of pure white, warm ink text. Only page surfaces, text and
- * borders change; brand, status and money colours stay the same as the site (tokens.css).
- * Checked for WCAG AA by `pnpm tokens:check` (the "docs" theme).
+ * Docs reading theme ("sage"): warm cream pages, soft sage surfaces, olive accents, navy code blocks.
+ * Only the docs UI loads this file. Surfaces, text, borders and the brand accent change; status and
+ * money colours stay as in tokens.css. Checked for WCAG AA by `pnpm tokens:check` (the "docs" theme).
  */
 :root {
-  --paper-50: oklch(0.982 0.007 85);
-  --paper-100: oklch(0.968 0.011 85);
-  --paper-150: oklch(0.951 0.013 85);
-  --paper-200: oklch(0.933 0.015 85);
-  --paper-300: oklch(0.887 0.017 80);
-  --paper-400: oklch(0.82 0.02 80);
-  --paper-ink-500: oklch(0.53 0.014 70);
-  --paper-ink-600: oklch(0.45 0.014 70);
-  --paper-ink-900: oklch(0.27 0.01 70);
+  --sage-25: oklch(0.975 0.007 106);
+  --sage-50: oklch(0.962 0.01 108);
+  --sage-100: oklch(0.938 0.016 112);
+  --sage-150: oklch(0.918 0.02 114);
+  --sage-200: oklch(0.895 0.024 115);
+  --sage-300: oklch(0.85 0.03 116);
+  --sage-ink-500: oklch(0.5 0.022 115);
+  --sage-ink-600: oklch(0.43 0.022 115);
+  --sage-ink-900: oklch(0.22 0.014 115);
+  --olive-50: oklch(0.94 0.035 120);
+  --olive-200: oklch(0.85 0.06 122);
+  --olive-600: oklch(0.47 0.085 125);
+  --olive-700: oklch(0.41 0.08 125);
+  --olive-900: oklch(0.29 0.04 125);
+  --navy-code: oklch(0.255 0.035 266);
+  --navy-code-line: oklch(0.32 0.035 266);
 
-  --background: var(--paper-100);
-  --foreground: var(--paper-ink-900);
-  --surface: var(--paper-50);
-  --surface-foreground: var(--paper-ink-900);
-  --surface-subtle: var(--paper-150);
-  --surface-sunken: var(--paper-200);
-  --muted-foreground: var(--paper-ink-600);
-  --subtle-foreground: var(--paper-ink-500);
-  --border: var(--paper-300);
-  --border-strong: var(--paper-400);
-  --input: oklch(0.6 0.02 75);
-  --secondary: var(--paper-150);
-  --secondary-hover: var(--paper-200);
-  --secondary-foreground: var(--paper-ink-900);
-  --accent: var(--paper-150);
-  --accent-foreground: var(--paper-ink-900);
+  --background: var(--sage-50); /* page, header, sidebar */
+  --foreground: var(--sage-ink-900);
+  --surface: var(--sage-100); /* callouts, cards, prev/next, inputs */
+  --surface-foreground: var(--sage-ink-900);
+  --surface-subtle: var(--sage-100);
+  --surface-sunken: var(--sage-150);
+  --muted-foreground: var(--sage-ink-600);
+  --subtle-foreground: var(--sage-ink-500);
+  --border: var(--sage-200);
+  --border-strong: var(--sage-300);
+  --input: oklch(0.58 0.03 115);
+  --secondary: var(--sage-100);
+  --secondary-hover: var(--sage-150);
+  --secondary-foreground: var(--sage-ink-900);
+  --accent: var(--sage-100);
+  --accent-foreground: var(--sage-ink-900);
+
+  --brand: var(--olive-600); /* links, active items, tip titles */
+  --brand-hover: var(--olive-700);
+  --brand-subtle: var(--olive-50);
+  --brand-border: var(--olive-200);
+  --brand-foreground: var(--sage-25);
+  --ring: var(--olive-600);
+
+  /* Docs-only */
+  --popover-surface: var(
+    --sage-25
+  ); /* menus, search dialog: lighter than cards */
+  --pill-strong: var(--olive-900); /* dark badge in the sidebar ("New") */
+  --code-surface: var(--navy-code);
+  --code-line: var(--navy-code-line);
+  --radius-card: 1.5rem;
 }
 
 /* Live component previews inside the docs render on the real (white) site surfaces. */
@@ -50,6 +73,12 @@
   --secondary-foreground: var(--ink-950);
   --accent: var(--ink-50);
   --accent-foreground: var(--ink-950);
+  --brand: var(--green-700);
+  --brand-hover: var(--green-800);
+  --brand-subtle: var(--green-50);
+  --brand-border: var(--green-200);
+  --brand-foreground: var(--ink-0);
+  --ring: var(--green-600);
   background-color: var(--background);
   color: var(--foreground);
 }
