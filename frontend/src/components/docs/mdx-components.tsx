@@ -1,9 +1,17 @@
-import { Callout } from "fumadocs-ui/components/callout";
+import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
+import { File, Files, Folder } from "fumadocs-ui/components/files";
 import { Step, Steps } from "fumadocs-ui/components/steps";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { TypeTable } from "fumadocs-ui/components/type-table";
 import defaultMdxComponents from "fumadocs-ui/mdx";
 import type { MDXComponents } from "mdx/types";
+import { Button } from "@/components/ui/button";
+import { Endpoint, MethodBadge, Responses } from "./api/endpoint";
 import { ArchitectureMap } from "./architecture-map";
+import { Callout } from "./blocks/callout";
+import { Decision } from "./blocks/decision";
+import { DocsCodeBlock } from "./code/code-block";
+import { Example } from "./code/example";
 import {
   ComponentGallery,
   GalleryAppShell,
@@ -24,28 +32,49 @@ import { IconGallery, Ph } from "./icons";
 import { Mermaid } from "./mermaid";
 
 /**
- * Components available in every MDX page without importing them:
- *   <Mermaid chart={`...`} caption="..." />   any Mermaid diagram
- *   <ArchitectureMap />                       interactive system map
- *   <Callout type="info|warn|error">          highlighted note
- *   <Steps><Step>...</Step></Steps>           numbered walkthrough
- *   <Tabs items={["A","B"]}><Tab value="A">   tabbed content
- *   <Ph name="Vault" />                       Phosphor icon (any name from phosphoricons.com)
- *   <IconGallery />                           curated banking / engineering icons
- *   <ColorTokens /> <TypeScale />             design tokens
- *   <GalleryButtons /> <GalleryForms /> <GalleryDataTable /> <GalleryOverlays />
- *   <GalleryFeedback /> <GalleryLoaders /> <GalleryNavigation />
- *   <GalleryDataTableStates /> <GallerySearchableSelect /> <GalleryReusableBlocks />
- *   <GalleryAppShell /> <GalleryStatusPages />   live component previews
+ * Components available in every MDX page without importing them (full guide: Frontend > Docs toolkit).
+ *
+ * Writing
+ *   <Callout type="tip|info|warn|error|success" title="...">   highlighted note
+ *   <Steps><Step>...</Step></Steps>                            numbered walkthrough
+ *   <Tabs items={["A","B"]}><Tab value="A">                    tabbed content
+ *   <Accordions><Accordion title="...">                         FAQ / collapsible detail
+ *   <Ph name="Vault" />  <IconGallery />                        Phosphor icons
+ * Code
+ *   ```ts title="x.ts"  ```bash tab="cURL"  ```npm  ```mermaid  fences (see lib/docs/source.ts)
+ *   <Example code={`...`}>live preview</Example>              Live example / Code tabs
+ *   <Files><Folder name="src"><File name="a.ts" /></Folder></Files>   file tree
+ * API and architecture
+ *   <Endpoint method="POST" path="/api/v1/..." auth status summary>  API operation
+ *   <Responses items={[{ status, code, description }]} />       status codes / error codes
+ *   <TypeTable type={{ field: { type, description, required } }} />  request / DTO fields
+ *   <MethodBadge method="GET" />                                inline HTTP method
+ *   <Decision id="ADR-001" status="accepted" date="..." />      ADR header
+ *   <Mermaid chart={`...`} /> <ArchitectureMap />               diagrams
+ * Design system
+ *   <ColorTokens /> <TypeScale /> <Gallery... />                live component previews
  */
 export function getMDXComponents(components?: MDXComponents) {
   return {
     ...defaultMdxComponents,
+    pre: DocsCodeBlock,
     Callout,
     Steps,
     Step,
     Tabs,
     Tab,
+    Accordion,
+    Accordions,
+    Files,
+    Folder,
+    File,
+    TypeTable,
+    Endpoint,
+    Responses,
+    MethodBadge,
+    Decision,
+    Example,
+    Button,
     Mermaid,
     ArchitectureMap,
     ColorTokens,
