@@ -54,7 +54,7 @@ src/
   components/
     ui/                        design-system components (button, input, field, card, badge, table, amount, ...)
     brand/ site/ feedback/ motion/ providers/
-    docs/                      MDX-only components: Mermaid, ArchitectureMap, ColorTokens, ComponentGallery
+    docs/                      MDX-only components: diagrams/ (Diagram, SequenceDiagram, SystemMap), api/, code/, gallery
   lib/
     api/                       client.ts (browser fetch), gateway-proxy.ts, problem.ts (ApiError), error-messages.ts
     auth/basic-auth.ts  env.ts (server-only, runtime config)  fonts.ts  format.ts  cn.ts
@@ -106,9 +106,12 @@ docs/plan.md                   decisions and roadmap
 **Docs UI**
 - Add a page: `content/docs/<section>/<name>.mdx` with `title`, `description`, `icon` (lucide name)
   frontmatter, then list it in that folder's `meta.json`. Details: `/v1/admin/docs-ui/frontend/writing-docs`.
-- Diagrams: `<Mermaid chart={`...`} caption="..." />`. Don't use `;` inside sequence-diagram messages
-  (Mermaid treats it as a line break). The system map is `src/components/docs/architecture-map.tsx` -
+- Diagrams: **never Mermaid** (owner's rule - its output doesn't fit the design). Use `<SequenceDiagram>`
+  (participants + steps, laid out for you) or `<Diagram>` with `<Box>` / `<Arrow>` (hand-drawn SVG, `flow` = the
+  animated main path). The system map is `<SystemMap />` in `src/components/docs/diagrams/library.tsx` -
   update it when a service or connection changes.
+- Markdown must render properly: tables, inline code and code fences are checked in the browser (and on a
+  ~390 px wide screen) before a docs change is done.
 - Links between pages: relative file links in markdown (`[x](./other.mdx)`); in JSX props such as
   `<Card href>` use the full path (`/v1/admin/docs-ui/...`).
 - Facts about the backend must be checked against the backend code before writing them.

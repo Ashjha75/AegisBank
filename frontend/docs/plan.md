@@ -27,7 +27,7 @@ The docs UI is never linked from the customer site, is password-protected, and i
 | Icons | `lucide-react` (product UI), `@phosphor-icons/react` (docs, illustrations) | One outline set in the app; Phosphor's banking/engineering coverage and weights for docs |
 | Motion | `motion` (`motion/react`), respects reduced motion | Small, meaningful transitions only |
 | Data | TanStack Query, `react-hook-form` + `zod` | Caching/retries for reads, typed validated forms |
-| Docs | Fumadocs (`fumadocs-ui`, `fumadocs-mdx`), Mermaid, React Flow | MDX pages with search, diagrams, an interactive architecture map |
+| Docs | Fumadocs (`fumadocs-ui`, `fumadocs-mdx`), hand-drawn SVG diagram components (no Mermaid) | MDX pages with search, diagrams, an interactive architecture map |
 | Quality | Biome (lint + format), Vitest + Testing Library, contrast checker | One fast tool per job |
 | Runtime | Node 26 (LTS) on Alpine, pnpm 12 | Current LTS; pnpm pinned in `package.json` |
 
