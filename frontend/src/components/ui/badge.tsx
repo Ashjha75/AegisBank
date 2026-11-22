@@ -4,7 +4,7 @@ import { cn } from "@/lib/cn";
 
 /** Small status label. Colour carries meaning, so the text must say the same thing. */
 const badgeVariants = cva(
-  "inline-flex items-center gap-1.5 whitespace-nowrap rounded-sm border px-2 py-0.5 font-medium text-caption [&_svg]:size-3",
+  "inline-flex items-center gap-1.5 whitespace-nowrap rounded-sm border px-1.5 py-px font-medium text-caption [&_svg]:size-3",
   {
     variants: {
       tone: {
@@ -15,7 +15,8 @@ const badgeVariants = cva(
         warning:
           "border-warning-border bg-warning-subtle text-warning-foreground",
         danger: "border-danger-border bg-danger-subtle text-danger-foreground",
-        accent: "border-transparent bg-accent-subtle text-accent",
+        brand: "border-brand-border bg-brand-subtle text-brand",
+        solid: "border-transparent bg-primary text-primary-foreground",
       },
     },
     defaultVariants: { tone: "neutral" },

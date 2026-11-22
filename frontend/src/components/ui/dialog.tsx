@@ -5,18 +5,25 @@ import { Dialog as DialogPrimitive } from "radix-ui";
 import type * as React from "react";
 import { cn } from "@/lib/cn";
 
-/** Modal dialog: focus is trapped, Esc closes, background is inert. Use for confirmations (e.g. OTP). */
+/**
+ * Modal dialog: focus is trapped, Esc closes, background is inert. Use for confirmations
+ * (e.g. "Send ₹25,000 to Priya?") and short forms (OTP). For long forms or details use <Sheet>.
+ */
 export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogClose = DialogPrimitive.Close;
+
+const sizes = { sm: "max-w-sm", md: "max-w-md", lg: "max-w-xl" } as const;
 
 export function DialogContent({
   className,
   children,
   hideClose = false,
+  size = "md",
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   hideClose?: boolean;
+  size?: keyof typeof sizes;
 }) {
   return (
     <DialogPrimitive.Portal>
@@ -29,9 +36,10 @@ export function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-(--z-modal) grid w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-5",
-          "rounded-xl border border-border bg-surface p-6 shadow-lg",
+          "fixed top-1/2 left-1/2 z-(--z-modal) grid w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-5",
+          "rounded-lg border border-border bg-surface p-6 shadow-lg",
           "data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out",
+          sizes[size],
           className,
         )}
         {...props}
@@ -39,7 +47,7 @@ export function DialogContent({
         {children}
         {!hideClose && (
           <DialogPrimitive.Close
-            className="absolute top-4 right-4 rounded-sm p-1 text-muted-foreground transition-colors duration-fast hover:bg-secondary hover:text-foreground"
+            className="absolute top-4 right-4 flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-fast hover:bg-accent hover:text-foreground"
             aria-label="Close"
           >
             <X className="size-4" aria-hidden="true" />
@@ -54,7 +62,7 @@ export function DialogHeader({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-  return <div className={cn("grid gap-1.5 pr-6", className)} {...props} />;
+  return <div className={cn("grid gap-1.5 pr-8", className)} {...props} />;
 }
 
 export function DialogFooter({
