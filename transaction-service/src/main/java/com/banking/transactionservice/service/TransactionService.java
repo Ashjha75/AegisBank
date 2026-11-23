@@ -1,22 +1,21 @@
 package com.banking.transactionservice.service;
 
 import com.banking.transactionservice.client.AccountClient;
+import com.banking.transactionservice.config.KafkaConfig;
 import com.banking.transactionservice.config.OtpProperties;
 import com.banking.transactionservice.dto.TransactionResponse;
 import com.banking.transactionservice.dto.TransferRequest;
 import com.banking.transactionservice.entity.Transaction;
 import com.banking.transactionservice.entity.TransactionStatus;
 import com.banking.transactionservice.entity.TransactionType;
-import com.banking.transactionservice.exception.DownstreamServiceException;
-import com.banking.transactionservice.exception.InvalidOtpException;
-import com.banking.transactionservice.exception.InvalidTransactionStateException;
-import com.banking.transactionservice.exception.InvalidTransferException;
-import com.banking.transactionservice.exception.ResourceNotFoundException;
+import com.banking.transactionservice.event.TransactionInitiatedEvent;
+import com.banking.transactionservice.exception.*;
 import com.banking.transactionservice.mapper.TransactionMapper;
 import com.banking.transactionservice.repository.TransactionRepository;
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,9 +36,12 @@ import java.util.regex.Pattern;
  *  1. save transaction PENDING
  *  2. deduct sender            -> fails: FAILED (nothing moved)
  *  3. status PROCESSING
- *  4. amount >= OTP threshold  -> PENDING_VERIFICATION, wait for verifyOTP()
- *  5. credit receiver          -> fails: refund sender, FAILED
- *  6. COMPLETED
+ *  4. publish TransactionInitiatedEvent (topic transaction.initiated) for fraud-detection-service
+ *  5. return PROCESSING        -- for now the flow stops here (see transfer())
+ *
+ *  Not active yet (commented out in transfer(), code kept):
+ *     amount >= OTP threshold  -> PENDING_VERIFICATION, wait for verifyOTP()
+ *     credit receiver          -> fails: refund sender, FAILED;  ok: COMPLETED
  *
  *  verifyOTP: right OTP -> step 5;  expired / too many wrong OTPs -> refund sender, FLAGGED
  * </pre>
@@ -53,21 +55,37 @@ public class TransactionService {
 
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final DateTimeFormatter REFERENCE_TIME = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
-    /** Pulls "detail" out of account-service's RFC 9457 error body, e.g. "Insufficient balance ...". */
+    /**
+     * Pulls "detail" out of account-service's RFC 9457 error body, e.g. "Insufficient balance ...".
+     */
     private static final Pattern PROBLEM_DETAIL = Pattern.compile("\"detail\"\\s*:\\s*\"([^\"]*)\"");
+
+
+    // Topic names must match the consumers exactly - no spaces.
+    private static final String TRANSACTION_INITIATED_TOPIC = KafkaConfig.TRANSACTION_INITIATED_TOPIC;
+    private static final String TRANSACTION_COMPLETED_TOPIC = "transaction.completed";
+    private static final String TRANSACTION_REFUNDED_TOPIC = "transaction.refunded";
 
     private final TransactionRepository transactionRepository;
     private final TransactionMapper transactionMapper;
     private final AccountClient accountClient;
     private final OtpProperties otpProperties;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     /**
-     * Starts a transfer. Returns the saved transaction: COMPLETED, PENDING_VERIFICATION (OTP needed)
-     * or FAILED (with failureReason, e.g. insufficient balance).
-     *
-     * @throws DownstreamServiceException account-service failed or was unreachable while deducting
+     * SAGA STEP -
+     * <pre>
+     *      1: Initiate transfer
+     *      2: Deducts from sender via feign
+     *      3: Saves transaction as PROCESSING.
+     *      4: Publish event to kafka for fraud check
+     *      5: Returns.
+     * </pre>
+     * @param request
+     * @return
      */
     public TransactionResponse transfer(TransferRequest request) {
+
         validate(request);
 
         Transaction transaction = transactionMapper.toEntity(request);
@@ -90,12 +108,50 @@ public class TransactionService {
         }
         transaction.setStatus(TransactionStatus.PROCESSING);
         transaction = transactionRepository.save(transaction);
+        log.info("Transfer {} saved as PROCESSING", transaction.getReferenceNumber());
 
-        if (transaction.getAmount().compareTo(otpProperties.threshold()) >= 0) {
-            issueOtp(transaction);
-            return transactionMapper.toResponse(transactionRepository.save(transaction));
+        // SAGA step 2: publish for fraud check (fraud-detection-service reads transaction.initiated)
+        publishTransactionInitiated(transaction);
+
+        // NOT ACTIVE YET - the receiver must not be credited before the fraud check answers.
+        // Re-enable once fraud-detection-service reports back (e.g. credit on "fraud check passed").
+        // if (transaction.getAmount().compareTo(otpProperties.threshold()) >= 0) {
+        //     issueOtp(transaction);
+        //     return transactionMapper.toResponse(transactionRepository.save(transaction));
+        // }
+        // return creditReceiver(transaction);
+
+        return transactionMapper.toResponse(transaction);
+    }
+
+    /**
+     * Fire-and-forget: the sender is already debited and the transaction is saved as PROCESSING,
+     * so a Kafka problem must not fail the request. It is logged so the transfer can be re-published.
+     */
+    private void publishTransactionInitiated(Transaction transaction) {
+        TransactionInitiatedEvent event = new TransactionInitiatedEvent(
+                transaction.getId(),
+                transaction.getSenderAccountNumber(),
+                transaction.getReceiverAccountNumber(),
+                transaction.getAmount(),
+                transaction.getDescription(),
+                LocalDateTime.now());
+        try {
+            kafkaTemplate.send(TRANSACTION_INITIATED_TOPIC, transaction.getId(), event)
+                    .whenComplete((result, ex) -> {
+                        if (ex != null) {
+                            log.error("Transfer {}: could not publish {} - re-publish it later",
+                                    transaction.getReferenceNumber(), TRANSACTION_INITIATED_TOPIC, ex);
+                        } else {
+                            log.info("SAGA step 2 - TransactionInitiatedEvent published for transfer {} (id {})",
+                                    transaction.getReferenceNumber(), transaction.getId());
+                        }
+                    });
+        } catch (RuntimeException ex) {
+            // e.g. Kafka unreachable for max.block.ms (5 s)
+            log.error("Transfer {}: could not publish {} - re-publish it later",
+                    transaction.getReferenceNumber(), TRANSACTION_INITIATED_TOPIC, ex);
         }
-        return creditReceiver(transaction);
     }
 
     @Transactional(readOnly = true)
@@ -147,7 +203,9 @@ public class TransactionService {
 
     // ---------------------------------------------------------------- SAGA steps
 
-    /** SAGA step 2: give the money to the receiver; refund the sender if that fails. */
+    /**
+     * SAGA step 2: give the money to the receiver; refund the sender if that fails.
+     */
     private TransactionResponse creditReceiver(Transaction transaction) {
         try {
             accountClient.creditBalance(transaction.getReceiverAccountNumber(), transaction.getAmount());
@@ -163,7 +221,9 @@ public class TransactionService {
         return transactionMapper.toResponse(transactionRepository.save(transaction));
     }
 
-    /** Compensating step: give the deducted amount back to the sender. Returns false if that failed too. */
+    /**
+     * Compensating step: give the deducted amount back to the sender. Returns false if that failed too.
+     */
     private boolean refundSender(Transaction transaction) {
         try {
             accountClient.creditBalance(transaction.getSenderAccountNumber(), transaction.getAmount());
@@ -221,7 +281,9 @@ public class TransactionService {
 
     // ---------------------------------------------------------------- helpers
 
-    /** Same rules as TransferRequest's Bean Validation - repeated here because Kafka events skip controllers. */
+    /**
+     * Same rules as TransferRequest's Bean Validation - repeated here because Kafka events skip controllers.
+     */
     private static void validate(TransferRequest request) {
         if (request.amount() == null || request.amount().signum() <= 0) {
             throw new InvalidTransferException("Amount must be greater than zero");
@@ -232,12 +294,16 @@ public class TransactionService {
         }
     }
 
-    /** e.g. TXN20261121143005-4821 */
+    /**
+     * e.g. TXN20261121143005-4821
+     */
     private static String newReferenceNumber() {
         return "TXN" + LocalDateTime.now().format(REFERENCE_TIME) + "-" + "%04d".formatted(RANDOM.nextInt(10_000));
     }
 
-    /** 5xx or no response at all (status -1): account-service broke, not a business "no". */
+    /**
+     * 5xx or no response at all (status -1): account-service broke, not a business "no".
+     */
     private static boolean isServerSide(FeignException e) {
         return e.status() < 0 || e.status() >= 500;
     }

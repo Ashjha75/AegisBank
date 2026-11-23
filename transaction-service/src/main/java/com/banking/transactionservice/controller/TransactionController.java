@@ -38,9 +38,9 @@ public class TransactionController {
     }
 
     @Operation(summary = "Transfer money",
-            description = "Deducts the sender and credits the receiver. Returns the transaction with status "
-                    + "COMPLETED, PENDING_VERIFICATION (amount over the OTP threshold - call verify-otp) "
-                    + "or FAILED (see failureReason, e.g. insufficient balance).")
+            description = "Deducts the sender and publishes a transaction.initiated event for the fraud check. "
+                    + "Returns the transaction with status PROCESSING (receiver not credited yet - that step "
+                    + "waits for fraud-detection) or FAILED (see failureReason, e.g. insufficient balance).")
     @PostMapping("/transfer")
     public ResponseEntity<TransactionResponse> transfer(@Valid @RequestBody TransferRequest transferRequest) {
         log.info("Transfer requested: {} -> {}, amount {}", transferRequest.senderAccountNumber(),
