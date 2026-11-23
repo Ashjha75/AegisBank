@@ -1,5 +1,6 @@
 package com.banking.frauddetectionservice.service;
 
+import com.banking.frauddetectionservice.config.KafkaConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -12,21 +13,19 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class FraudDetectionEventConsumer {
+
     private final FraudDetectionService fraudDetectionService;
 
     /**
-     * Listen to transaction.initiated topics.</br>
-     * Every transaction goes through a fraud check before completing .
-     * @param payload
+     * Listens to {@code transaction.initiated}: every transfer goes through the fraud checks before it completes.
+     * Exceptions are not caught here - the DefaultErrorHandler (see KafkaConfig) retries and then
+     * sends the message to {@code transaction.initiated-dlt}.
+     *
+     * @param payload TransactionInitiatedEvent from transaction-service, read as a Map
      */
-
-    @KafkaListener(topics = "${kafka.topic.fraud-detection}", groupId = "${kafka.group-id}")
-    public void consumeFraudDetectionEvent(@Payload Map<String,Object> payload) {
-        log.info("Consuming fraud detection event: {}", payload.get("transactionId"));
-        try {
-            fraudDetectionService.processFraudDetectionEvent(payload);
-        } catch (Exception e) {
-            log.error("Error occurred while processing fraud detection event: {}", payload.get("transactionId"), e);
-        }
+    @KafkaListener(topics = KafkaConfig.TRANSACTION_INITIATED_TOPIC)
+    public void consumeTransactionInitiated(@Payload Map<String, Object> payload) {
+        log.info("Received transaction.initiated event for transaction {}", payload.get("transactionId"));
+        fraudDetectionService.processFraudDetectionEvent(payload);
     }
 }
