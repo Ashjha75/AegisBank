@@ -7,6 +7,7 @@ import com.banking.transactionservice.dto.TransferRequest;
 import com.banking.transactionservice.entity.Transaction;
 import com.banking.transactionservice.entity.TransactionStatus;
 import com.banking.transactionservice.entity.TransactionType;
+import com.banking.transactionservice.event.TransactionInitiatedEvent;
 import com.banking.transactionservice.exception.DownstreamServiceException;
 import com.banking.transactionservice.exception.InvalidOtpException;
 import com.banking.transactionservice.exception.InvalidTransactionStateException;
@@ -18,6 +19,9 @@ import feign.Request;
 import feign.Response;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.kafka.KafkaException;
+import org.springframework.kafka.core.KafkaTemplate;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -26,14 +30,17 @@ import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /** Plain unit test - no Spring, no database, no running account-service. */
@@ -46,38 +53,71 @@ class TransactionServiceTest {
 
     private TransactionRepository repository;
     private AccountClient accountClient;
+    private KafkaTemplate<String, Object> kafkaTemplate;
     private TransactionService service;
 
     @BeforeEach
+    @SuppressWarnings("unchecked")
     void setUp() {
         repository = mock(TransactionRepository.class);
         accountClient = mock(AccountClient.class);
+        kafkaTemplate = mock(KafkaTemplate.class);
         when(repository.save(any(Transaction.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(kafkaTemplate.send(anyString(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
         service = new TransactionService(repository, new TransactionMapper(), accountClient,
-                new OtpProperties(new BigDecimal("50000"), 5, 3));
+                new OtpProperties(new BigDecimal("50000"), 5, 3), kafkaTemplate);
     }
 
     // ------------------------------------------------------------- transfer
 
     @Test
-    void smallTransferDeductsSenderCreditsReceiverAndCompletes() {
+    void transferDeductsSenderPublishesFraudCheckEventAndStaysProcessing() {
         TransactionResponse result = service.transfer(new TransferRequest(SENDER, RECEIVER, SMALL, "rent"));
 
-        assertThat(result.status()).isEqualTo(TransactionStatus.COMPLETED);
+        assertThat(result.status()).isEqualTo(TransactionStatus.PROCESSING);
         assertThat(result.type()).isEqualTo(TransactionType.TRANSFER);
         assertThat(result.referenceNumber()).startsWith("TXN");
-        assertThat(result.completedAt()).isNotNull();
         verify(accountClient).deductBalance(SENDER, SMALL);
-        verify(accountClient).creditBalance(RECEIVER, SMALL);
+        // receiver is NOT credited until the fraud check answers
+        verify(accountClient, never()).creditBalance(anyString(), any());
+
+        ArgumentCaptor<Object> event = ArgumentCaptor.forClass(Object.class);
+        verify(kafkaTemplate).send(eq("transaction.initiated"), any(), event.capture());
+        assertThat(event.getValue()).isInstanceOfSatisfying(TransactionInitiatedEvent.class, e -> {
+            assertThat(e.senderAccountNumber()).isEqualTo(SENDER);
+            assertThat(e.receiverAccountNumber()).isEqualTo(RECEIVER);
+            assertThat(e.amount()).isEqualByComparingTo(SMALL);
+            assertThat(e.description()).isEqualTo("rent");
+            assertThat(e.initiatedAt()).isNotNull();
+        });
     }
 
     @Test
-    void bigTransferWaitsForOtpWithoutCreditingReceiver() {
+    void bigTransferAlsoStaysProcessingWhileOtpStepIsDisabled() {
         TransactionResponse result = service.transfer(new TransferRequest(SENDER, RECEIVER, BIG, null));
 
-        assertThat(result.status()).isEqualTo(TransactionStatus.PENDING_VERIFICATION);
+        assertThat(result.status()).isEqualTo(TransactionStatus.PROCESSING);
         verify(accountClient).deductBalance(SENDER, BIG);
         verify(accountClient, never()).creditBalance(anyString(), any());
+    }
+
+    @Test
+    void kafkaDownDoesNotFailTheTransfer() {
+        when(kafkaTemplate.send(anyString(), any(), any())).thenThrow(new KafkaException("broker not available"));
+
+        TransactionResponse result = service.transfer(new TransferRequest(SENDER, RECEIVER, SMALL, null));
+
+        assertThat(result.status()).isEqualTo(TransactionStatus.PROCESSING);
+    }
+
+    @Test
+    void failedKafkaSendIsOnlyLogged() {
+        when(kafkaTemplate.send(anyString(), any(), any()))
+                .thenReturn(CompletableFuture.failedFuture(new KafkaException("timeout")));
+
+        TransactionResponse result = service.transfer(new TransferRequest(SENDER, RECEIVER, SMALL, null));
+
+        assertThat(result.status()).isEqualTo(TransactionStatus.PROCESSING);
     }
 
     @Test
@@ -90,6 +130,7 @@ class TransactionServiceTest {
         assertThat(result.status()).isEqualTo(TransactionStatus.FAILED);
         assertThat(result.failureReason()).contains("Insufficient balance");
         verify(accountClient, never()).creditBalance(anyString(), any());
+        verifyNoInteractions(kafkaTemplate);
     }
 
     @Test
@@ -102,14 +143,16 @@ class TransactionServiceTest {
 
     @Test
     void failedCreditRefundsTheSender() {
-        when(accountClient.creditBalance(RECEIVER, SMALL)).thenThrow(feignError(404,
+        // credit only happens via verifyOTP while the transfer() credit step is disabled
+        pendingVerification("123456", 0);
+        when(accountClient.creditBalance(RECEIVER, BIG)).thenThrow(feignError(404,
                 "{\"detail\":\"Account not found with accountNumber: 223456789012\"}"));
 
-        TransactionResponse result = service.transfer(new TransferRequest(SENDER, RECEIVER, SMALL, null));
+        TransactionResponse result = service.verifyOTP("tx-1", "123456");
 
         assertThat(result.status()).isEqualTo(TransactionStatus.FAILED);
         assertThat(result.failureReason()).contains("Account not found").contains("sender refunded");
-        verify(accountClient).creditBalance(SENDER, SMALL);
+        verify(accountClient).creditBalance(SENDER, BIG);
     }
 
     @Test
