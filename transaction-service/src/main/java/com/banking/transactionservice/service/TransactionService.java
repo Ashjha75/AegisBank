@@ -62,7 +62,7 @@ public class TransactionService {
 
 
     // Topic names must match the consumers exactly - no spaces.
-    private static final String TRANSACTION_INITIATED_TOPIC = KafkaConfig.TRANSACTION_INITIATED_TOPIC;
+    private static final String TRANSACTION_INITIATED_TOPIC = "transaction.initiated";
     private static final String TRANSACTION_COMPLETED_TOPIC = "transaction.completed";
     private static final String TRANSACTION_REFUNDED_TOPIC = "transaction.refunded";
 

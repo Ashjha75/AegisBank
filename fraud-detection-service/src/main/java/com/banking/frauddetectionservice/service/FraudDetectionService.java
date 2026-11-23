@@ -83,7 +83,6 @@ public class FraudDetectionService {
      *     <li>Velocity: more than {@code fraud.max-transactions-per-minute} transfers from the account in 60 s.</li>
      *     <li>Amount: transfer above (account's average transfer x {@code fraud.suspicious-amount-multiplier}).</li>
      *     <li>Balance: transfer above {@code fraud.max-balance-percentage} of the balance it was taken from.</li>
-     *     <li>Geography: not implemented yet - the event carries no location data.</li>
      * </ol>
      */
     FraudCheckResult performFraudChecks(String accountNumber, BigDecimal amount, BigDecimal balanceBeforeDebit) {
@@ -100,9 +99,6 @@ public class FraudDetectionService {
             return FraudCheckResult.flagged("Transaction exceeds "
                     + fraudProperties.maxBalancePercentage().movePointRight(2).stripTrailingZeros().toPlainString()
                     + "% of the account balance");
-        }
-        if (isGeographicalSuspicious(accountNumber)) {
-            return FraudCheckResult.flagged("Unusual transaction location detected");
         }
         return FraudCheckResult.clean();
     }
@@ -151,10 +147,6 @@ public class FraudDetectionService {
         return amount.compareTo(threshold) > 0;
     }
 
-    private boolean isGeographicalSuspicious(String accountNumber) {
-        // TODO: needs location data (IP / device / city) in TransactionInitiatedEvent before it can be checked.
-        return false;
-    }
 
     private static String requiredText(Map<String, Object> payload, String field) {
         Object value = payload.get(field);
