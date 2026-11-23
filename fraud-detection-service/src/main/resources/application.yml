@@ -22,6 +22,27 @@ spring:
     consumer:
       group-id: fraud-detection-service
       auto-offset-reset: earliest
+      # Jackson* classes are the Spring Kafka 4 / Jackson 3 versions, same as the other services.
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+      properties:
+        # Ignore type headers and always read events as a Map. Trust only java.util - never "*".
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: java.util.HashMap
+        spring.json.trusted.packages: java.util
+    # Verdicts (fraud.check.clean / verification.required) are sent as JSON, keyed by transaction id.
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+      properties:
+        # No Java class names in headers - consumers read plain JSON.
+        spring.json.add.type.headers: false
+        max.block.ms: 5000
+
+# Base URL for the OpenFeign client (AccountServiceClient)
+services:
+  account:
+    url: ${ACCOUNT_SERVICE_URL}
 
 management:
   endpoints:
@@ -31,13 +52,9 @@ management:
   endpoint:
     health:
       show-details: always
+
+# Fraud rules (FraudProperties) - change per environment in .env without touching code.
 fraud:
-  max:
-    transactions:
-      per:
-        minute: 5
-    balance:
-      percentage: 0.90
-    suspicious:
-      amount:
-        multiplier: 5.0
+  max-transactions-per-minute: ${FRAUD_MAX_TRANSACTIONS_PER_MINUTE}
+  suspicious-amount-multiplier: ${FRAUD_SUSPICIOUS_AMOUNT_MULTIPLIER}
+  max-balance-percentage: ${FRAUD_MAX_BALANCE_PERCENTAGE}
