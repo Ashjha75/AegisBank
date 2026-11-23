@@ -54,6 +54,8 @@ account:
 springdoc:
   api-docs:
     enabled: ${SWAGGER_ENABLED:true}
+  # Service-to-service endpoints aren't routed by the gateway - keep them out of the public Swagger UI.
+  paths-to-exclude: /internal/**
 openapi:
   gateway-url: ${GATEWAY_URL:http://localhost:8080}   # "Try it out" sends requests here
 
