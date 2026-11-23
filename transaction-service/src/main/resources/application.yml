@@ -26,6 +26,16 @@ spring:
     consumer:
       group-id: transaction-service
       auto-offset-reset: earliest
+    # Events (e.g. TransactionInitiatedEvent) are sent as JSON, keyed by transaction id.
+    # Jackson* classes are the Spring Kafka 4 / Jackson 3 versions, same as account-service.
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+      properties:
+        # No Java class names in headers - consumers read plain JSON (account-service reads a Map).
+        spring.json.add.type.headers: false
+        # If Kafka is down, fail after 5 s instead of blocking the transfer request for 60 s.
+        max.block.ms: 5000
 
 # Base URLs for OpenFeign clients (e.g. @FeignClient(name = "account-service", url = "${services.account.url}"))
 services:
