@@ -26,6 +26,16 @@ spring:
     consumer:
       group-id: transaction-service
       auto-offset-reset: earliest
+      # Class names are case-sensitive. Jackson* classes are the Spring Kafka 4 / Jackson 3 versions
+      # (the older JsonDeserializer/JsonSerializer are deprecated).
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+      properties:
+        # Ignore type headers from producers and always read events as a Map.
+        # Trust only java.util - never "*", which lets a message choose any class to instantiate.
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: java.util.HashMap
+        spring.json.trusted.packages: java.util
     # Events (e.g. TransactionInitiatedEvent) are sent as JSON, keyed by transaction id.
     # Jackson* classes are the Spring Kafka 4 / Jackson 3 versions, same as account-service.
     producer:

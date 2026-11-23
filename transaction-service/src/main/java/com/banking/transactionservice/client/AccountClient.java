@@ -8,10 +8,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 import java.math.BigDecimal;
 
 /**
+ * <pre>
  * OpenFeign client for account-service's service-to-service endpoints ({@code /internal/v1/accounts}).
  * The base URL comes from ACCOUNT_SERVICE_URL in transaction-service/.env.
  * Errors arrive as {@code feign.FeignException}: status 4xx = account-service refused (e.g. insufficient
  * balance), 5xx or -1 = account-service failed or was unreachable.
+ * </pre>
  */
 @FeignClient(name = "account-service", url = "${services.account.url}")
 public interface AccountClient {
