@@ -36,3 +36,6 @@ fraud:
     transactions:
       per:
         minute: 5
+  suspicious:
+    amount:
+      multiplier: 5.0

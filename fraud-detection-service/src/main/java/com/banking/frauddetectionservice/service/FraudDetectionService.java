@@ -28,6 +28,9 @@ public class FraudDetectionService {
     @Value("${fraud.max.transactions.per.minute}")
     private final int MAX_TRANSACTIONS_PER_MINUTE;
 
+    @Value("${fraud.suspicious.amount.multiplier}")
+    private static final double SUSPICIOUS_AMOUNT_MULTIPLIER = 0.0;
+
     public void processFraudDetectionEvent(Map<String, Object> payload) {
         String transactionId = (String) payload.get("transactionId");
         String accountId = (String) payload.get("accountId");
@@ -63,6 +66,9 @@ public class FraudDetectionService {
      * <Pre>
      *     <ul>
      *         <li>Pattern 1st- Velocity Check: If many transactions are happening in a short span of time, it can be considered as suspicious activity.</li>
+     *         <li>Pattern 2nd- Amount Check: If the transaction amount is unusually high compared to the average transaction amount, it can be considered as suspicious activity.</li>
+     *         <li>Pattern 3rd- Balance Check: If the transaction amount exceeds 90% of the account balance, it can be considered as suspicious activity.</li>
+     *         <li>Pattern 4th- Geographical Check: If the transaction is happening from a location that is unusual for the account holder, it can be considered as suspicious activity.</li>
      *     </ul>
      * </Pre>
      */
@@ -89,12 +95,31 @@ public class FraudDetectionService {
         return new FraudCheckResult();
     }
 
+    private boolean isBalanceCheckFailed(BigDecimal accountBalance, BigDecimal amount) {
+
+        return amount.compareTo(accountBalance.multiply(BigDecimal.valueOf(0.9))) > 0;
+    }
+
     private boolean isGeographicalSuspicious(String accountId) {
         // Implementation for geographical check
         return false;
     }
 
     private boolean isAmountSuspicious(BigDecimal amount, BigDecimal accountBalance) {
+        String key = "fraud:average_amount:" + accountBalance;
+        String averageAmountStr = redisTemplate.opsForValue().get(key);
+        if(averageAmountStr == null) {
+           redisTemplate.opsForValue().set(key, accountBalance.toString());
+            return false;
+        }
+
+        BigDecimal amountAverage = new BigDecimal(averageAmountStr);
+        BigDecimal threshold = amountAverage.multiply(BigDecimal.valueOf(SUSPICIOUS_AMOUNT_MULTIPLIER));
+
+        redisTemplate.opsForValue().set(key, accountBalance.toString());
+        log.info("Amount suspicious for account: {}, threshold: {}", accountBalance, threshold);
+        return amount.compareTo(threshold) > 0;
+
     }
 
     private boolean isVelocityExceeded(String accountId) {
