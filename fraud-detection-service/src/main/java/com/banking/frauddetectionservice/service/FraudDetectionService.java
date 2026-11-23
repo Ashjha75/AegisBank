@@ -31,6 +31,9 @@ public class FraudDetectionService {
     @Value("${fraud.suspicious.amount.multiplier}")
     private static final double SUSPICIOUS_AMOUNT_MULTIPLIER = 0.0;
 
+    @Value("${fraud.max.balance.percentage}")
+    private double MAX_BALANCE_PERCENTAGE;
+
     public void processFraudDetectionEvent(Map<String, Object> payload) {
         String transactionId = (String) payload.get("transactionId");
         String accountId = (String) payload.get("accountId");
@@ -97,7 +100,11 @@ public class FraudDetectionService {
 
     private boolean isBalanceCheckFailed(BigDecimal accountBalance, BigDecimal amount) {
 
-        return amount.compareTo(accountBalance.multiply(BigDecimal.valueOf(0.9))) > 0;
+        BigDecimal threshold = accountBalance.multiply(BigDecimal.valueOf(MAX_BALANCE_PERCENTAGE));
+        log.info("Balance check for account: {}, transaction amount: {}, threshold: {}", accountBalance, amount, threshold);
+
+        return  amount.compareTo(threshold) > 0;
+
     }
 
     private boolean isGeographicalSuspicious(String accountId) {

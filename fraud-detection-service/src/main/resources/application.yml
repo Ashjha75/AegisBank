@@ -36,6 +36,8 @@ fraud:
     transactions:
       per:
         minute: 5
-  suspicious:
-    amount:
-      multiplier: 5.0
+    balance:
+      percentage: 0.90
+    suspicious:
+      amount:
+        multiplier: 5.0
