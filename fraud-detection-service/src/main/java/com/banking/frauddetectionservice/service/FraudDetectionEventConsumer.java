@@ -3,6 +3,7 @@ package com.banking.frauddetectionservice.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -20,7 +21,7 @@ public class FraudDetectionEventConsumer {
      */
 
     @KafkaListener(topics = "${kafka.topic.fraud-detection}", groupId = "${kafka.group-id}")
-    public void consumeFraudDetectionEvent(@payload Map<String,Object> payload) {
+    public void consumeFraudDetectionEvent(@Payload Map<String,Object> payload) {
         log.info("Consuming fraud detection event: {}", payload.get("transactionId"));
         try {
             fraudDetectionService.processFraudDetectionEvent(payload);

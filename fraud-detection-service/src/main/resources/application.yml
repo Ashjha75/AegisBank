@@ -31,3 +31,8 @@ management:
   endpoint:
     health:
       show-details: always
+fraud:
+  max:
+    transactions:
+      per:
+        minute: 5
