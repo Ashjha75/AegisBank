@@ -21,6 +21,13 @@ spring:
       ddl-auto: update        # dev only - move to validate + Flyway migrations later
     open-in-view: false
 
+  # OTPs for transfers waiting for verification (see OtpService). Same Redis as the other services.
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}   # required - must match REDIS_PASSWORD in the root .env
+
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
