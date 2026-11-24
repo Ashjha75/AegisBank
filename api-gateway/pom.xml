@@ -30,6 +30,8 @@
 		<java.version>25</java.version>
 		<springdoc.version>3.0.2</springdoc.version>
 		<spring-cloud.version>2025.1.4</spring-cloud.version>
+		<!-- Same version spring-cloud-gateway-server-webmvc 5.0.4 is built against -->
+		<bucket4j.version>8.15.0</bucket4j.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -43,6 +45,18 @@
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-gateway-server-webmvc</artifactId>
+		</dependency>
+		<!-- Rate limiting: the WebMVC gateway's RateLimit filter is built on Bucket4j. Buckets are kept in
+		     Redis (via Lettuce, already on the classpath) so the limit holds across gateway instances. -->
+		<dependency>
+			<groupId>com.bucket4j</groupId>
+			<artifactId>bucket4j_jdk17-core</artifactId>
+			<version>${bucket4j.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.bucket4j</groupId>
+			<artifactId>bucket4j_jdk17-lettuce</artifactId>
+			<version>${bucket4j.version}</version>
 		</dependency>
 		<!-- OpenAPI / Swagger: see api-gateway application.yml for the combined UI -->
 		<dependency>
