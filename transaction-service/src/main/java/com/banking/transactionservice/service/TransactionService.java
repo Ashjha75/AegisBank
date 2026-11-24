@@ -9,6 +9,7 @@ import com.banking.transactionservice.entity.Transaction;
 import com.banking.transactionservice.entity.TransactionStatus;
 import com.banking.transactionservice.entity.TransactionType;
 import com.banking.transactionservice.event.TransactionCompletedEvent;
+import com.banking.transactionservice.event.TransactionFailedEvent;
 import com.banking.transactionservice.event.TransactionInitiatedEvent;
 import com.banking.transactionservice.exception.*;
 import com.banking.transactionservice.mapper.TransactionMapper;
@@ -290,32 +291,46 @@ public class TransactionService {
         return transactionMapper.toResponse(transaction);
     }
 
-    /**
-     * Fire-and-forget, like publishTransactionInitiated: the money has already moved, so a Kafka problem
-     * must not throw - that would roll the status back to PROCESSING although the receiver was credited.
-     */
     private void publishTransactionCompleted(Transaction transaction) {
-        TransactionCompletedEvent event = new TransactionCompletedEvent(
+        publishQuietly(KafkaConfig.TRANSACTION_COMPLETED_TOPIC, transaction, new TransactionCompletedEvent(
                 transaction.getId(),
                 transaction.getSenderAccountNumber(),
                 transaction.getReceiverAccountNumber(),
                 transaction.getAmount(),
                 transaction.getDescription(),
-                transaction.getCompletedAt());
+                transaction.getCompletedAt()));
+    }
+
+    /** Tells notification-service that the transfer ended FAILED or FLAGGED (status + reason in the event). */
+    private void publishTransactionFailed(Transaction transaction) {
+        publishQuietly(KafkaConfig.TRANSACTION_FAILED_TOPIC, transaction, new TransactionFailedEvent(
+                transaction.getId(),
+                transaction.getSenderAccountNumber(),
+                transaction.getReceiverAccountNumber(),
+                transaction.getAmount(),
+                transaction.getStatus().name(),
+                transaction.getFailureReason(),
+                LocalDateTime.now()));
+    }
+
+    /**
+     * Fire-and-forget, like publishTransactionInitiated: the outcome is already saved and money may already
+     * have moved, so a Kafka problem must not throw - that would roll the status change back.
+     */
+    private void publishQuietly(String topic, Transaction transaction, Object event) {
         try {
-            kafkaTemplate.send(KafkaConfig.TRANSACTION_COMPLETED_TOPIC, transaction.getId(), event)
+            kafkaTemplate.send(topic, transaction.getId(), event)
                     .whenComplete((result, ex) -> {
                         if (ex != null) {
                             log.error("Transfer {}: could not publish {} - re-publish it later",
-                                    transaction.getReferenceNumber(), KafkaConfig.TRANSACTION_COMPLETED_TOPIC, ex);
+                                    transaction.getReferenceNumber(), topic, ex);
                         } else {
-                            log.info("TransactionCompletedEvent published for transfer {}",
-                                    transaction.getReferenceNumber());
+                            log.info("Transfer {}: {} published", transaction.getReferenceNumber(), topic);
                         }
                     });
         } catch (RuntimeException ex) {
             log.error("Transfer {}: could not publish {} - re-publish it later",
-                    transaction.getReferenceNumber(), KafkaConfig.TRANSACTION_COMPLETED_TOPIC, ex);
+                    transaction.getReferenceNumber(), topic, ex);
         }
     }
 
@@ -340,7 +355,9 @@ public class TransactionService {
         transaction.setFailureReason(refundSender(transaction) ? reason + " (sender refunded)"
                 : reason + " (sender refund FAILED - needs manual check)");
         log.warn("Transfer {} flagged: {}", transaction.getReferenceNumber(), transaction.getFailureReason());
-        return transactionMapper.toResponse(transactionRepository.save(transaction));
+        transaction = transactionRepository.save(transaction);
+        publishTransactionFailed(transaction);
+        return transactionMapper.toResponse(transaction);
     }
 
     private void markFailed(Transaction transaction, String reason) {
@@ -348,6 +365,7 @@ public class TransactionService {
         transaction.setFailureReason(reason);
         transactionRepository.save(transaction);
         log.warn("Transfer {} failed: {}", transaction.getReferenceNumber(), reason);
+        publishTransactionFailed(transaction);
     }
 
     // ---------------------------------------------------------------- helpers

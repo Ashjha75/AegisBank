@@ -31,6 +31,8 @@ public class KafkaConfig {
     public static final String OTP_GENERATED_TOPIC = "transaction.otp.generated";
     /** Published here once the receiver is credited. Informational only - nobody may move money on it. */
     public static final String TRANSACTION_COMPLETED_TOPIC = "transaction.completed";
+    /** Published here when a transfer ends FAILED or FLAGGED. Informational only (notification-service). */
+    public static final String TRANSACTION_FAILED_TOPIC = "transaction.failed";
 
     @Bean
     public NewTopic transactionInitiatedTopic() {
@@ -45,6 +47,11 @@ public class KafkaConfig {
     @Bean
     public NewTopic transactionCompletedTopic() {
         return TopicBuilder.name(TRANSACTION_COMPLETED_TOPIC).partitions(3).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic transactionFailedTopic() {
+        return TopicBuilder.name(TRANSACTION_FAILED_TOPIC).partitions(3).replicas(1).build();
     }
 
     @Bean

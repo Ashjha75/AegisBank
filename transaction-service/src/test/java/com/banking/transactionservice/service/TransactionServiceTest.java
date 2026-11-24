@@ -8,6 +8,7 @@ import com.banking.transactionservice.entity.Transaction;
 import com.banking.transactionservice.entity.TransactionStatus;
 import com.banking.transactionservice.entity.TransactionType;
 import com.banking.transactionservice.event.TransactionCompletedEvent;
+import com.banking.transactionservice.event.TransactionFailedEvent;
 import com.banking.transactionservice.event.TransactionInitiatedEvent;
 import com.banking.transactionservice.exception.DownstreamServiceException;
 import com.banking.transactionservice.exception.InvalidOtpException;
@@ -133,7 +134,15 @@ class TransactionServiceTest {
         assertThat(result.status()).isEqualTo(TransactionStatus.FAILED);
         assertThat(result.failureReason()).contains("Insufficient balance");
         verify(accountClient, never()).creditBalance(anyString(), any());
-        verifyNoInteractions(kafkaTemplate);
+        // no fraud check for a transfer that never moved money - only the failure notification
+        verify(kafkaTemplate, never()).send(eq("transaction.initiated"), any(), any());
+        ArgumentCaptor<Object> event = ArgumentCaptor.forClass(Object.class);
+        verify(kafkaTemplate).send(eq("transaction.failed"), any(), event.capture());
+        assertThat(event.getValue()).isInstanceOfSatisfying(TransactionFailedEvent.class, e -> {
+            assertThat(e.status()).isEqualTo("FAILED");
+            assertThat(e.reason()).contains("Insufficient balance");
+            assertThat(e.senderAccountNumber()).isEqualTo(SENDER);
+        });
     }
 
     @Test
@@ -158,6 +167,7 @@ class TransactionServiceTest {
         assertThat(result.failureReason()).contains("Account not found").contains("sender refunded");
         verify(accountClient).creditBalance(SENDER, BIG);
         verify(kafkaTemplate, never()).send(eq("transaction.completed"), any(), any());
+        verify(kafkaTemplate).send(eq("transaction.failed"), eq("tx-1"), any());
     }
 
     @Test
@@ -297,6 +307,25 @@ class TransactionServiceTest {
         assertThat(result.status()).isEqualTo(TransactionStatus.FLAGGED);
         assertThat(result.failureReason()).contains("OTP expired");
         verify(accountClient, times(1)).creditBalance(SENDER, BIG);
+
+        ArgumentCaptor<Object> event = ArgumentCaptor.forClass(Object.class);
+        verify(kafkaTemplate).send(eq("transaction.failed"), eq("tx-1"), event.capture());
+        assertThat(event.getValue()).isInstanceOfSatisfying(TransactionFailedEvent.class, e -> {
+            assertThat(e.status()).isEqualTo("FLAGGED");
+            assertThat(e.reason()).contains("OTP expired").contains("sender refunded");
+            assertThat(e.amount()).isEqualByComparingTo(BIG);
+        });
+        verify(kafkaTemplate, never()).send(eq("transaction.completed"), any(), any());
+    }
+
+    @Test
+    void kafkaDownWhenFailingStillSavesTheFailure() {
+        when(kafkaTemplate.send(anyString(), any(), any())).thenThrow(new KafkaException("broker not available"));
+        when(accountClient.deductBalance(SENDER, SMALL)).thenThrow(feignError(422, "{\"detail\":\"Insufficient\"}"));
+
+        TransactionResponse result = service.transfer(new TransferRequest(SENDER, RECEIVER, SMALL, null));
+
+        assertThat(result.status()).isEqualTo(TransactionStatus.FAILED);
     }
 
     @Test
