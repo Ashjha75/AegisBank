@@ -1,33 +1,27 @@
 import {
   ArrowLeftRight,
-  CreditCard,
   LayoutDashboard,
+  Plus,
   ReceiptText,
-  Settings,
-  ShieldCheck,
   Wallet,
 } from "lucide-react";
 import type { AppNavSection } from "./app-shell";
 
 /**
- * The customer banking menu. Routes don't exist yet (customer screens come after the backend);
- * when a page is built, it lives at the href below and AppShell highlights it automatically.
+ * The customer banking menu, used by <BankingShell> and by the docs gallery.
+ *
+ * Only pages that exist are listed. Cards, security and settings are not here because there are
+ * no such screens - a menu entry that leads nowhere is worse than no entry. Add one when the
+ * page lands, and AppShell highlights it automatically.
  */
 export const BANKING_NAV: AppNavSection[] = [
   {
     items: [
       { label: "Overview", href: "/app", Icon: LayoutDashboard },
-      { label: "Accounts", href: "/app/accounts", Icon: Wallet },
-      { label: "Transfers", href: "/app/transfers", Icon: ArrowLeftRight },
+      { label: "Transfer money", href: "/app/transfers", Icon: ArrowLeftRight },
+      { label: "Add money", href: "/app/add-money", Icon: Plus },
       { label: "Transactions", href: "/app/transactions", Icon: ReceiptText },
-      { label: "Cards", href: "/app/cards", Icon: CreditCard },
-    ],
-  },
-  {
-    label: "Account",
-    items: [
-      { label: "Security", href: "/app/security", Icon: ShieldCheck },
-      { label: "Settings", href: "/app/settings", Icon: Settings },
+      { label: "Accounts", href: "/app/accounts", Icon: Wallet },
     ],
   },
 ];
