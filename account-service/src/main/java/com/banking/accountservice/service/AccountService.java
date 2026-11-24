@@ -96,8 +96,8 @@ public class AccountService {
     }
 
     /**
-     * Credit balance: credit the receiver on transaction.completed, or refund the sender when a
-     * transfer is rolled back (SAGA compensation). Called by transaction service / via Kafka.
+     * Credit balance: credit the receiver of a transfer, or refund the sender when a
+     * transfer is rolled back (SAGA compensation). Called by transaction-service via InternalAccountController.
      * <p>
      * BLOCKED accounts still accept credits - otherwise a refund to a sender blocked for fraud
      * would fail and the money would be stuck. Only CLOSED accounts reject credits.

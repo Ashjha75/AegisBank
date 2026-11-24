@@ -6,7 +6,6 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.util.Map;
 
 /**
@@ -23,19 +22,9 @@ public class AccountEventConsumer {
 
     private final AccountService accountService;
 
-    /**
-     * Consume transaction.completed event from Kafka. <br>
-     * Credit receiver account.
-     */
-    @KafkaListener(topics = "transaction.completed")
-    public void consumeTransactionCompleted(@Payload Map<String, Object> payload) {
-        log.info("Received transaction.completed event: {}", payload);
-        String receiverAccountNumber = requiredText(payload, "receiverAccountNumber");
-        BigDecimal amount = requiredAmount(payload, "amount");
-
-        log.info("Crediting account {} with amount: {}", receiverAccountNumber, amount);
-        accountService.creditBalance(receiverAccountNumber, amount);
-    }
+    // No listener for transaction.completed on purpose: transaction-service credits the receiver through
+    // InternalAccountController (Feign) and only THEN publishes transaction.completed as a notification.
+    // Crediting again here would pay the receiver twice.
 
     /**
      * Consume fraud.detected event from Kafka. <br>
@@ -58,18 +47,5 @@ public class AccountEventConsumer {
             throw new IllegalArgumentException("Event is missing required field '" + field + "'");
         }
         return value.toString();
-    }
-
-    /**
-     * JSON numbers arrive in a Map as Integer/Long/Double - never BigDecimal - so a cast would throw.
-     * Converting via toString() keeps the exact decimal value (no floating-point rounding).
-     */
-    private static BigDecimal requiredAmount(Map<String, Object> payload, String field) {
-        String text = requiredText(payload, field);
-        try {
-            return new BigDecimal(text);
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Event field '" + field + "' is not a number: " + text, e);
-        }
     }
 }
