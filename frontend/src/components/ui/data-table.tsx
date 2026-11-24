@@ -66,6 +66,12 @@ export interface DataTableProps<T> {
   showSerialNumber?: boolean;
   serialNumberLabel?: string;
 
+  /**
+   * Hides the pagination bar. The table still shows only `pageSize` rows, so this is what a
+   * "latest 5" preview wants: no page controls, and no "Rows per page" box offering sizes that
+   * would not make sense there.
+   */
+  pagination?: boolean;
   /** Rows per page. Controlled with `onPageSizeChange`, otherwise the initial value. Default 10. */
   pageSize?: number;
   onPageSizeChange?: (pageSize: number) => void;
@@ -108,6 +114,7 @@ export function DataTable<T>({
   getRowKey = (_row, index) => String(index),
   showSerialNumber = true,
   serialNumberLabel = "S.N.",
+  pagination = true,
   pageSize: pageSizeProp = 10,
   onPageSizeChange,
   pageSizeOptions = [10, 25, 50, 100],
@@ -341,16 +348,18 @@ export function DataTable<T>({
           )}
         </TableBody>
       </Table>
-      <Pagination
-        className="border-border border-t px-4 py-3"
-        page={Math.min(page, pageCount)}
-        pageSize={pageSize}
-        total={totalRows}
-        onPageChange={setPage}
-        pageSizeOptions={pageSizeOptions}
-        onPageSizeChange={setPageSize}
-        disabled={loading}
-      />
+      {pagination && (
+        <Pagination
+          className="border-border border-t px-4 py-3"
+          page={Math.min(page, pageCount)}
+          pageSize={pageSize}
+          total={totalRows}
+          onPageChange={setPage}
+          pageSizeOptions={pageSizeOptions}
+          onPageSizeChange={setPageSize}
+          disabled={loading}
+        />
+      )}
     </div>
   );
 }

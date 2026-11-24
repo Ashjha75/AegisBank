@@ -3,6 +3,7 @@
 import { Check } from "lucide-react";
 import { DropdownMenu as MenuPrimitive } from "radix-ui";
 import type * as React from "react";
+import { cloneElement, isValidElement } from "react";
 import { cn } from "@/lib/cn";
 
 export const DropdownMenu = MenuPrimitive.Root;
@@ -34,10 +35,21 @@ export function DropdownMenuContent({
 const itemClasses =
   "relative flex cursor-default select-none items-center gap-2 rounded-sm px-2.5 py-1.5 text-body-sm outline-none transition-colors duration-fast data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:size-4";
 
+/**
+ * A menu entry. `asChild` makes it a link:
+ *
+ *   <DropdownMenuItem asChild><Link href="/app/accounts">Your accounts</Link></DropdownMenuItem>
+ *
+ * With `asChild` the item is a Radix Slot, which takes exactly one element child - rendering the
+ * shortcut next to `children` would be two and Radix throws ("Primitive.div failed to slot onto
+ * its children"). So when both are used the shortcut is placed *inside* the child instead, which
+ * is also where it belongs visually: inside the link, not beside it.
+ */
 export function DropdownMenuItem({
   className,
   tone = "default",
   shortcut,
+  asChild,
   children,
   ...props
 }: React.ComponentProps<typeof MenuPrimitive.Item> & {
@@ -45,8 +57,28 @@ export function DropdownMenuItem({
   /** Keyboard hint on the right, e.g. "⌘K". */
   shortcut?: string;
 }) {
+  const shortcutNode = shortcut ? (
+    <span className="ml-auto pl-4 font-mono text-caption text-subtle-foreground">
+      {shortcut}
+    </span>
+  ) : null;
+
+  let content: React.ReactNode = children;
+  if (shortcutNode) {
+    content =
+      asChild && isElementWithChildren(children) ? (
+        cloneElement(children, undefined, children.props.children, shortcutNode)
+      ) : (
+        <>
+          {children}
+          {shortcutNode}
+        </>
+      );
+  }
+
   return (
     <MenuPrimitive.Item
+      asChild={asChild}
       className={cn(
         itemClasses,
         tone === "danger"
@@ -56,14 +88,15 @@ export function DropdownMenuItem({
       )}
       {...props}
     >
-      {children}
-      {shortcut && (
-        <span className="ml-auto pl-4 font-mono text-caption text-subtle-foreground">
-          {shortcut}
-        </span>
-      )}
+      {content}
     </MenuPrimitive.Item>
   );
+}
+
+function isElementWithChildren(
+  node: React.ReactNode,
+): node is React.ReactElement<{ children?: React.ReactNode }> {
+  return isValidElement(node);
 }
 
 export function DropdownMenuCheckboxItem({

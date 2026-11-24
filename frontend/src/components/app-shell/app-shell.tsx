@@ -4,6 +4,7 @@ import { LogOut, type LucideIcon, Menu, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type * as React from "react";
+import { Suspense } from "react";
 import { Logo } from "@/components/brand/logo";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -63,6 +64,7 @@ export interface AppShellProps {
   topbarActions?: React.ReactNode;
   /** Items in the account menu above "Sign out" (DropdownMenuItem elements). */
   userMenu?: React.ReactNode;
+  /** Adds the "Sign out" item to the account menu. Leave it out where there is no session. */
   onSignOut?: () => void;
   /** Bottom of the sidebar (a notice, a plan card). */
   sidebarFooter?: React.ReactNode;
@@ -130,6 +132,18 @@ function SidebarNav({
   );
 }
 
+/** The menu with the current route marked. Kept apart so only this part needs the pathname. */
+function ActiveSidebarNav({
+  nav,
+  active,
+}: {
+  nav: AppNavSection[];
+  active?: string;
+}) {
+  const pathname = usePathname() ?? "";
+  return <SidebarNav nav={nav} active={active} pathname={pathname} />;
+}
+
 export function AppShell({
   nav,
   user,
@@ -146,8 +160,6 @@ export function AppShell({
   children,
   className,
 }: AppShellProps) {
-  const pathname = usePathname() ?? "";
-
   const sidebar = (
     <div className="flex h-full flex-col gap-6 overflow-y-auto px-3 py-4">
       <div className="px-2">
@@ -161,7 +173,14 @@ export function AppShell({
           </Link>
         )}
       </div>
-      <SidebarNav nav={nav} active={active} pathname={pathname} />
+      {/*
+        usePathname() is request data under `cacheComponents`, so on a dynamic route it cannot
+        be read while prerendering. Only the highlight needs it: the same menu is prerendered
+        with nothing marked active, and the marked-up version streams in.
+      */}
+      <Suspense fallback={<SidebarNav nav={nav} active={active} pathname="" />}>
+        <ActiveSidebarNav nav={nav} active={active} />
+      </Suspense>
       {sidebarFooter && <div className="mt-auto">{sidebarFooter}</div>}
     </div>
   );
@@ -247,10 +266,15 @@ export function AppShell({
                     {userMenu}
                   </>
                 )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem tone="danger" onSelect={onSignOut}>
-                  <LogOut aria-hidden="true" /> Sign out
-                </DropdownMenuItem>
+                {/* No onSignOut means the area has no session to end - don't offer a dead action. */}
+                {onSignOut && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem tone="danger" onSelect={onSignOut}>
+                      <LogOut aria-hidden="true" /> Sign out
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
