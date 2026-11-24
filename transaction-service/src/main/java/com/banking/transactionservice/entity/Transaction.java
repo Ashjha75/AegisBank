@@ -46,10 +46,8 @@ public class Transaction {
     private String failureReason;
     private String referenceNumber;
 
-    // OTP for high-value transfers (status PENDING_VERIFICATION). Only a SHA-256 hash is stored,
-    // and none of these fields are ever sent to clients (TransactionMapper doesn't copy them).
-    private String otpHash;
-    private LocalDateTime otpExpiresAt;
+    // Wrong OTPs entered while PENDING_VERIFICATION. The OTP itself lives in Redis (see OtpService).
+    // Never sent to clients (TransactionMapper doesn't copy it).
     @Builder.Default
     // DB default so "ddl-auto: update" can add the column to a table that already has rows
     @Column(nullable = false, columnDefinition = "integer not null default 0")

@@ -1,76 +1,48 @@
 package com.banking.transactionservice.service;
 
-import com.banking.transactionservice.entity.Transaction;
-import com.banking.transactionservice.entity.TransactionStatus;
-import com.banking.transactionservice.repository.TransactionRepository;
+import com.banking.transactionservice.config.KafkaConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
-import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Reads fraud-detection-service's verdict for a transfer and hands it to TransactionService.
+ * Exceptions are not caught: the DefaultErrorHandler (KafkaConfig) retries, then sends the
+ * message to {@code <topic>-dlt}.
+ */
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class TransactionEventConsumer {
-    private final TransactionRepository transactionRepository;
-    private final RedisTemplate<String, String> redisTemplate;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
-    private static  final String TRANSACTION_OTP_GENERATED_TOPIC = "transaction.otp-generated";
-    private static final long OTP_EXPIRATION_MINUTES = 5;
 
-    /**
-     * Consume verification required
-     * </br>
-     * Generate OTP and ask user to verify
-     *
-     * @param payload verification-required event data
-     */
-    @SuppressWarnings("unused")
-    public void consumeVerificationRequiredEvent(@Payload Map<String, Object> payload) {
-        try {
-            String transactionId = (String) payload.get("transactionId");
-            String accountId = (String) payload.get("accountId");
-            String reason = (String) payload.get("reason");
-            log.info("Verification required for transaction {} on account {} due to reason: {}", transactionId, accountId, reason);
+    private final TransactionService transactionService;
 
-            Transaction transaction = transactionRepository.findById(transactionId).orElseThrow(() -> new RuntimeException("Transaction not found"));
-//            Added Idempotency Guard to avoid  double credit processing
-            if (transaction.getStatus() != TransactionStatus.PROCESSING) {
-                log.info("Transaction {} is not in PROCESSING state. Current state: {}. Skipping verification.", transactionId, transaction.getStatus());
-                return;
-            }
+    /** Fraud checks passed: credit the receiver (or ask for an OTP if the amount is above the threshold). */
+    @KafkaListener(topics = KafkaConfig.FRAUD_CHECK_CLEAN_TOPIC)
+    public void consumeFraudCheckClean(@Payload Map<String, Object> payload) {
+        String transactionId = requiredText(payload, "transactionId");
+        log.info("Received fraud.check.clean for transaction {}", transactionId);
+        transactionService.handleFraudCheckClean(transactionId);
+    }
 
-            // Generate OTP with simple logic for now
-            String otp = String.format("%06d", (int) (Math.random() * 900000) + 100000);
-            // Store OTP in Redis-expires in 5 minutes
-            redisTemplate.opsForValue().set("otp:" + transactionId, otp, Duration.ofMinutes(OTP_EXPIRATION_MINUTES));
+    /** Transfer looks suspicious: generate an OTP and ask the sender to verify. */
+    @KafkaListener(topics = KafkaConfig.VERIFICATION_REQUIRED_TOPIC)
+    public void consumeVerificationRequired(@Payload Map<String, Object> payload) {
+        String transactionId = requiredText(payload, "transactionId");
+        Object reason = payload.get("reason");
+        log.info("Received verification.required for transaction {}: {}", transactionId, reason);
+        transactionService.handleVerificationRequired(transactionId, reason == null ? null : reason.toString());
+    }
 
-//            Update the transaction status to PENDING_VERIFICATION
-            transaction.setStatus(TransactionStatus.PENDING_VERIFICATION);
-            transactionRepository.save(transaction);
-
-            log.info("Generated OTP {} for transaction {}. OTP will expire in {} minutes.", otp, transactionId, OTP_EXPIRATION_MINUTES);
-
-//            Notify to user
-
-            Map<String, Object> otpEvent = new HashMap<>();
-            otpEvent.put("transactionId", transactionId);
-            otpEvent.put("accountId", accountId);
-            otpEvent.put("reason", reason);
-            otpEvent.put("otp", otp);
-            kafkaTemplate.send(TRANSACTION_OTP_GENERATED_TOPIC,transactionId, otpEvent);
-
-
-        } catch (Exception e) {
-            log.error("Error processing verification-required event: {}", e.getMessage(), e);
-            throw new RuntimeException(e);
+    private static String requiredText(Map<String, Object> payload, String field) {
+        Object value = payload.get(field);
+        if (value == null || value.toString().isBlank()) {
+            throw new IllegalArgumentException("Event is missing required field '" + field + "'");
         }
-
+        return value.toString();
     }
 }

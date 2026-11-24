@@ -19,31 +19,29 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HexFormat;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * Money transfer SAGA between two accounts (both owned by account-service):
  * <pre>
- *  1. save transaction PENDING
- *  2. deduct sender            -> fails: FAILED (nothing moved)
- *  3. status PROCESSING
- *  4. publish TransactionInitiatedEvent (topic transaction.initiated) for fraud-detection-service
- *  5. return PROCESSING        -- for now the flow stops here (see transfer())
+ *  transfer():
+ *   1. save transaction PENDING
+ *   2. deduct sender            -> fails: FAILED (nothing moved)
+ *   3. status PROCESSING, publish transaction.initiated for fraud-detection-service, return PROCESSING
  *
- *  Not active yet (commented out in transfer(), code kept):
- *     amount >= OTP threshold  -> PENDING_VERIFICATION, wait for verifyOTP()
- *     credit receiver          -> fails: refund sender, FAILED;  ok: COMPLETED
+ *  fraud-detection-service answers (TransactionEventConsumer):
+ *   fraud.check.clean      -> amount >= OTP threshold: PENDING_VERIFICATION (OTP sent)
+ *                             otherwise: credit receiver -> COMPLETED (fails: refund sender, FAILED)
+ *   verification.required  -> PENDING_VERIFICATION (OTP sent)
  *
- *  verifyOTP: right OTP -> step 5;  expired / too many wrong OTPs -> refund sender, FLAGGED
+ *  verifyOTP(): right OTP -> credit receiver;  expired / too many wrong OTPs -> refund sender, FLAGGED
  * </pre>
  * Feign calls are not wrapped in one big DB transaction: every status change is saved straight away,
  * so the table always shows how far the SAGA got.
@@ -71,6 +69,7 @@ public class TransactionService {
     private final AccountClient accountClient;
     private final OtpProperties otpProperties;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final OtpService otpService;
 
     /**
      * SAGA STEP -
@@ -79,7 +78,8 @@ public class TransactionService {
      *      2: Deducts from sender via feign
      *      3: Saves transaction as PROCESSING.
      *      4: Publish event to kafka for fraud check
-     *      5: Returns.
+     *      5: Returns. The rest happens when fraud-detection-service answers (see handleFraudCheckClean /
+     *         handleVerificationRequired).
      * </pre>
      * @param request
      * @return
@@ -110,16 +110,9 @@ public class TransactionService {
         transaction = transactionRepository.save(transaction);
         log.info("Transfer {} saved as PROCESSING", transaction.getReferenceNumber());
 
-        // SAGA step 2: publish for fraud check (fraud-detection-service reads transaction.initiated)
+        // SAGA step 2: publish for fraud check (fraud-detection-service reads transaction.initiated).
+        // The receiver is credited only after fraud-detection-service answers.
         publishTransactionInitiated(transaction);
-
-        // NOT ACTIVE YET - the receiver must not be credited before the fraud check answers.
-        // Re-enable once fraud-detection-service reports back (e.g. credit on "fraud check passed").
-        // if (transaction.getAmount().compareTo(otpProperties.threshold()) >= 0) {
-        //     issueOtp(transaction);
-        //     return transactionMapper.toResponse(transactionRepository.save(transaction));
-        // }
-        // return creditReceiver(transaction);
 
         return transactionMapper.toResponse(transaction);
     }
@@ -170,6 +163,52 @@ public class TransactionService {
                 .toList();
     }
 
+    // ---------------------------------------------------------------- fraud-detection answers
+
+    /**
+     * fraud.check.clean: the fraud checks passed. High-value transfers still need an OTP;
+     * everything else credits the receiver straight away.
+     */
+    @Transactional
+    public void handleFraudCheckClean(String transactionId) {
+        Transaction transaction = lockProcessing(transactionId, "fraud.check.clean");
+        if (transaction == null) {
+            return;
+        }
+        if (transaction.getAmount().compareTo(otpProperties.threshold()) >= 0) {
+            requestOtp(transaction, "High-value transfer");
+            return;
+        }
+        creditReceiver(transaction);
+    }
+
+    /** verification.required: fraud-detection-service flagged the transfer - the sender must confirm it by OTP. */
+    @Transactional
+    public void handleVerificationRequired(String transactionId, String reason) {
+        Transaction transaction = lockProcessing(transactionId, "verification.required");
+        if (transaction == null) {
+            return;
+        }
+        requestOtp(transaction, reason == null ? "Suspicious activity" : reason);
+    }
+
+    /**
+     * Loads and locks the transaction. Returns null when it is no longer PROCESSING: Kafka can deliver an
+     * event twice, and the second delivery must not issue a second OTP or credit the receiver twice.
+     */
+    private Transaction lockProcessing(String transactionId, String event) {
+        Transaction transaction = transactionRepository.findByIdForUpdate(transactionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Transaction", "id", transactionId));
+        if (transaction.getStatus() != TransactionStatus.PROCESSING) {
+            log.info("Transfer {}: ignoring {} - status is already {}",
+                    transaction.getReferenceNumber(), event, transaction.getStatus());
+            return null;
+        }
+        return transaction;
+    }
+
+    // ---------------------------------------------------------------- OTP
+
     /**
      * Confirms a PENDING_VERIFICATION transfer. The row is locked so two parallel calls can't both credit
      * the receiver. A wrong OTP still saves the attempt count (noRollbackFor) before telling the client.
@@ -182,23 +221,50 @@ public class TransactionService {
         if (transaction.getStatus() != TransactionStatus.PENDING_VERIFICATION) {
             throw new InvalidTransactionStateException(transactionId, transaction.getStatus(), "verify OTP");
         }
-        if (LocalDateTime.now().isAfter(transaction.getOtpExpiresAt())) {
-            return flagAndRefund(transaction, "OTP expired");
-        }
-        if (!MessageDigest.isEqual(hash(otp).getBytes(StandardCharsets.UTF_8),
-                transaction.getOtpHash().getBytes(StandardCharsets.UTF_8))) {
-            transaction.setOtpAttempts(transaction.getOtpAttempts() + 1);
-            int attemptsLeft = otpProperties.maxAttempts() - transaction.getOtpAttempts();
-            if (attemptsLeft <= 0) {
-                return flagAndRefund(transaction, "Too many wrong OTP attempts");
-            }
-            transactionRepository.save(transaction);
-            throw new InvalidOtpException(attemptsLeft);
-        }
 
-        clearOtp(transaction);
-        log.info("Transfer {} verified by OTP", transaction.getReferenceNumber());
-        return creditReceiver(transaction);
+        switch (otpService.verify(transactionId, otp)) {
+            case EXPIRED -> {
+                return flagAndRefund(transaction, "OTP expired");
+            }
+            case WRONG -> {
+                transaction.setOtpAttempts(transaction.getOtpAttempts() + 1);
+                int attemptsLeft = otpProperties.maxAttempts() - transaction.getOtpAttempts();
+                if (attemptsLeft <= 0) {
+                    return flagAndRefund(transaction, "Too many wrong OTP attempts");
+                }
+                transactionRepository.save(transaction);
+                throw new InvalidOtpException(attemptsLeft);
+            }
+            case VALID -> {
+                log.info("Transfer {} verified by OTP", transaction.getReferenceNumber());
+                return creditReceiver(transaction);
+            }
+        }
+        throw new IllegalStateException("Unhandled OTP result");
+    }
+
+    /**
+     * Puts the transfer on hold and sends the sender an OTP (via notification-service).
+     * The publish waits for Kafka: if it fails, the exception rolls the status back and the
+     * Kafka error handler retries the event, which issues a fresh OTP.
+     */
+    private void requestOtp(Transaction transaction, String reason) {
+        String otp = otpService.generate(transaction.getId());
+        transaction.setStatus(TransactionStatus.PENDING_VERIFICATION);
+        transaction.setOtpAttempts(0);
+        transactionRepository.save(transaction);
+
+        Map<String, Object> event = new HashMap<>();
+        event.put("transactionId", transaction.getId());
+        event.put("referenceNumber", transaction.getReferenceNumber());
+        event.put("senderAccountNumber", transaction.getSenderAccountNumber());
+        event.put("amount", transaction.getAmount());
+        event.put("reason", reason);
+        event.put("otp", otp);
+        event.put("expiryMinutes", otpProperties.expiryMinutes());
+        kafkaTemplate.send(KafkaConfig.OTP_GENERATED_TOPIC, transaction.getId(), event).join();
+        // Never log the OTP itself.
+        log.info("Transfer {} waiting for OTP verification ({})", transaction.getReferenceNumber(), reason);
     }
 
     // ---------------------------------------------------------------- SAGA steps
@@ -237,7 +303,7 @@ public class TransactionService {
     }
 
     private TransactionResponse flagAndRefund(Transaction transaction, String reason) {
-        clearOtp(transaction);
+        otpService.delete(transaction.getId());
         transaction.setStatus(TransactionStatus.FLAGGED);
         transaction.setFailureReason(refundSender(transaction) ? reason + " (sender refunded)"
                 : reason + " (sender refund FAILED - needs manual check)");
@@ -250,33 +316,6 @@ public class TransactionService {
         transaction.setFailureReason(reason);
         transactionRepository.save(transaction);
         log.warn("Transfer {} failed: {}", transaction.getReferenceNumber(), reason);
-    }
-
-    // ---------------------------------------------------------------- OTP
-
-    private void issueOtp(Transaction transaction) {
-        String otp = "%06d".formatted(RANDOM.nextInt(1_000_000));
-        transaction.setStatus(TransactionStatus.PENDING_VERIFICATION);
-        transaction.setOtpHash(hash(otp));
-        transaction.setOtpExpiresAt(LocalDateTime.now().plusMinutes(otpProperties.expiryMinutes()));
-        transaction.setOtpAttempts(0);
-        // TODO: publish an event so notification-service sends the OTP, then delete this log line.
-        // DEV ONLY - an OTP must never be logged in production.
-        log.info("[DEV ONLY] OTP for transfer {} (id {}): {}", transaction.getReferenceNumber(), transaction.getId(), otp);
-    }
-
-    private static void clearOtp(Transaction transaction) {
-        transaction.setOtpHash(null);
-        transaction.setOtpExpiresAt(null);
-    }
-
-    private static String hash(String value) {
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(digest);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 not available", e);
-        }
     }
 
     // ---------------------------------------------------------------- helpers
