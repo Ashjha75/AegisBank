@@ -6,10 +6,12 @@ import com.banking.transactionservice.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
 
 @Service
@@ -18,6 +20,8 @@ import java.util.Map;
 public class TransactionEventConsumer {
     private final TransactionRepository transactionRepository;
     private final RedisTemplate<String, String> redisTemplate;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private static  final String TRANSACTION_OTP_GENERATED_TOPIC = "transaction.otp-generated";
     private static final long OTP_EXPIRATION_MINUTES = 5;
 
     /**
@@ -55,8 +59,16 @@ public class TransactionEventConsumer {
 
 //            Notify to user
 
+            Map<String, Object> otpEvent = new HashMap<>();
+            otpEvent.put("transactionId", transactionId);
+            otpEvent.put("accountId", accountId);
+            otpEvent.put("reason", reason);
+            otpEvent.put("otp", otp);
+            kafkaTemplate.send(TRANSACTION_OTP_GENERATED_TOPIC,transactionId, otpEvent);
+
 
         } catch (Exception e) {
+            log.error("Error processing verification-required event: {}", e.getMessage(), e);
             throw new RuntimeException(e);
         }
 
