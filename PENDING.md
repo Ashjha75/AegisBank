@@ -1,20 +1,22 @@
 # AegisBank - pending work
 
 Open items for the whole project, ordered by priority. Tick them off as you go.
-Last updated 2026-11-24, after a full live run: all 6 services up, 138/138 tests passing, transfer / OTP /
-fraud / refund / payment-webhook / rate-limit flows tested end to end through the api-gateway.
+Last updated 2026-11-24, after building the customer UI and running it against all 6 services: open
+account / transfer / OTP / history / Razorpay top-up all tested end to end through the browser, the
+api-gateway and the BFF proxy.
 
-> **In progress (owner):** adding real Razorpay **test** keys and the webhook setup - see item 1.
+> **In progress (owner):** UPI and ID handling. Razorpay test keys are in place - the create-order call
+> and Checkout work (see item 1 for what is left: the public webhook URL).
 
 ---
 
 ## High priority
 
 ### 1. Razorpay test keys + webhook (in progress)
-- [ ] Put real test keys in `payment-service/.env` (Dashboard > Account & Settings > API Keys):
-      `RAZORPAY_KEY_ID=rzp_test_...` (~23 chars) and `RAZORPAY_KEY_SECRET=...` (~24 chars).
-      The current values are too short - Razorpay answers `401 Authentication failed`, so
-      `POST /api/v1/payments/create-order` returns **502**.
+- [x] Real test keys are in `payment-service/.env`. Verified from the UI: `POST /api/v1/payments/create-order`
+      returns 201 and Razorpay Checkout opens in test mode and captures a payment
+      (domestic test card 5267 3181 8797 5449 - the account has international cards switched off,
+      so 4111 1111 1111 1111 is declined).
 - [ ] Create the webhook (Dashboard > Webhooks): URL `https://<public-host>/api/v1/payments/webhook`,
       events `payment.captured` + `payment.failed`, and put the secret you choose in `RAZORPAY_WEBHOOK_SECRET`.
 - [ ] Locally Razorpay can't reach `localhost` - expose the gateway with a tunnel (e.g. `ngrok http 8080`)
@@ -32,7 +34,9 @@ duplicate webhook -> no second event). Only the Razorpay API call itself fails, 
       `@Transactional` as the credit; skip if it is already there. Kafka delivers *at least once*.
 
 **Why:** today a successful payment only triggers an alert - the money never reaches the account
-(tested: account balance unchanged after a completed ₹250.75 payment).
+(tested again from the UI: balance unchanged after a captured ₹250.75 test payment). The "Add money"
+screen says this out loud so nobody waits for a balance that will not change - remove that note when
+the listener lands.
 
 ### 3. Authentication & authorization
 - [ ] Add JWT authentication at the api-gateway (Spring Security / OAuth2 resource server).
@@ -42,6 +46,10 @@ duplicate webhook -> no second event). Only the Razorpay API call itself fails, 
 
 **Why:** today anyone who can reach the gateway can read any account (email, phone, balance) and
 **transfer money out of any account number**.
+
+**What the UI does meanwhile:** `/app` keeps the account numbers you add in `localStorage` and works on
+the active one (`frontend/src/lib/accounts/`). It is a stand-in, not security, and the UI says so on the
+Accounts screen. When auth lands, replace that store with the session and drop the account switcher.
 
 ### 4. Enforce the daily transaction limit
 - [ ] `dailyTransactionLimit` is stored on `Account` but never checked (tested: ₹60,000 + ₹70,000 on the same
@@ -115,6 +123,33 @@ duplicate webhook -> no second event). Only the Razorpay API call itself fails, 
 
 ---
 
+## Frontend (`frontend/`)
+
+The customer app is at `/app`: overview, transfer (with the OTP step), add money, transaction history
+and detail, and the accounts on this device. Everything goes through the BFF proxy to the api-gateway.
+Details: `/v1/admin/docs-ui/frontend/banking-app`.
+
+### 11. What the UI needs from the backend
+- [ ] **Paging and filtering on the history endpoint.** `GET /v1/transactions/account/{n}/history`
+      returns every transaction; the table filters and pages in the browser. Fine for a test account,
+      not for a real one. Add `page`, `size`, `status` and `from`/`to` parameters and switch the table
+      to its server mode (it already supports `total` + `onPageChange`).
+- [ ] **A payment status endpoint.** After Checkout the UI can only say "submitted": there is no
+      `GET /v1/payments/{id}`, so it cannot show when the webhook has marked the payment COMPLETED.
+      Add one and the "Add money" screen can poll it like a transfer.
+- [ ] **A balance response object.** `GET /v1/accounts/{n}/balance` returns a bare number (also in the
+      low-priority list below). The UI reads the balance off the account instead.
+
+### 12. Frontend work still open
+- [ ] Sign-in screen exists at `/sign-in` but authenticates nobody and nothing links to it. Wire it up
+      with item 3, then replace the account switcher with the session.
+- [ ] No end-to-end tests yet (Playwright is installed). The transfer + OTP flow is the one to cover.
+- [ ] `frontend/.env` points `API_GATEWAY_URL` at `host.docker.internal`, which is right for
+      `docker compose up` but not for `pnpm dev` on the host - run that with
+      `API_GATEWAY_URL=http://localhost:8080`.
+
+---
+
 ## Done (for reference)
 
 - **Fraud detection:** compiles and starts; reads `transaction.initiated`; velocity / amount / balance checks
@@ -135,3 +170,9 @@ duplicate webhook -> no second event). Only the Razorpay API call itself fails, 
 - **Internal endpoints:** transaction-service calls account-service on `/internal/v1/accounts/...`; no
   `/internal/**` route on the gateway.
 - **Kafka:** every consumer reads JSON as a Map and sends failing messages to `<topic>-dlt` after 3 retries.
+- **Customer UI:** `/app` built against the three client-facing services and tested in the browser -
+  open account, add an existing account, transfer, OTP (wrong code and right code), history with
+  filters, transaction detail, Razorpay Checkout. 115 frontend tests, `pnpm check` and `pnpm build`
+  green. Fraud-detection and notification-service stay internal: no screens.
+- **CSP:** `next.config.ts` now sends a Content-Security-Policy that allows Razorpay Checkout
+  (script, frame, images, calls) and nothing else third-party.
