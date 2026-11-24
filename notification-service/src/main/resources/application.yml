@@ -16,6 +16,20 @@ spring:
     consumer:
       group-id: notification-service
       auto-offset-reset: earliest
+      # Events arrive as JSON and are read as a Map. Jackson* classes are the Spring Kafka 4 / Jackson 3 versions.
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+      properties:
+        # Ignore type headers and always read events as a Map. Trust only java.util - never "*".
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: java.util.HashMap
+        spring.json.trusted.packages: java.util
+    # Only used to send failed events to <topic>-dlt (see config/KafkaConfig).
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+      properties:
+        spring.json.add.type.headers: false
 
   # Uncomment when you start sending email, and fill in the MAIL_* values in notification-service/.env
   # (e.g. Gmail SMTP with an app password, or a local Mailpit container).
