@@ -1,0 +1,99 @@
+---
+title: Banking app (/app)
+description: The customer screens - which account they are about, every endpoint they call, and what is deliberately missing.
+icon: Wallet
+---
+
+The customer-facing app lives under `/app` and talks to account-, transaction- and payment-service
+through the BFF proxy. Fraud-detection and notification-service have no screens: they act on Kafka
+events behind the transfer flow.
+
+<Callout type="warn">
+  There is no authentication yet. Every screen is about whichever account number this **browser** has
+  stored, and anyone who knows an account number can look it up. See `PENDING.md` item 3.
+</Callout>
+
+## Which account a screen is about
+
+Without sign-in the app needs some notion of "your account". It keeps a short list of account numbers
+in `localStorage` and one of them is active:
+
+| Piece | File | What it does |
+| --- | --- | --- |
+| Rules | `src/lib/accounts/known-accounts.ts` | Validate, add, remove, switch, parse stored JSON. Pure, unit-tested. |
+| Store | `src/lib/accounts/accounts-store.ts` | `useKnownAccounts()` - the same list for every component. |
+| Gate | `src/components/banking/account-gate.tsx` | Renders a screen only once an account is chosen. |
+| Switcher | `src/components/banking/account-switcher.tsx` | The control in the top bar. |
+
+The store uses `useSyncExternalStore`, **not** `useState` + `useEffect`. React renders
+`getServerSnapshot` on the server and while hydrating, so the first client render always matches the
+HTML. With an effect, the routes that stream (`/app/accounts/[accountNumber]`,
+`/app/transactions/[transactionId]`) hydrate *after* the value has loaded and React throws a
+hydration mismatch.
+
+## Screens
+
+| Route | Calls | Notes |
+| --- | --- | --- |
+| `/app` | `GET /v1/accounts/{n}`, `GET /v1/transactions/account/{n}/history` | Balance, status, limit, last 5 transactions, a prompt for any transfer waiting on a code. |
+| `/app/transfers` | `POST /v1/transactions/transfer`, `POST /v1/transactions/{id}/verify-otp` | Form → confirm dialog → result that polls until the status settles. |
+| `/app/add-money` | `POST /v1/payments/create-order` | Creates the order, then hands over to Razorpay Checkout. |
+| `/app/transactions` | `GET /v1/transactions/account/{n}/history` | Search, direction and status filters, sortable table. |
+| `/app/transactions/[id]` | `GET /v1/transactions/{id}` | Full detail, what happened in plain words, the OTP panel when one is needed. |
+| `/app/accounts` | `GET /v1/accounts/{n}` per account | The accounts on this device; switch or remove one. |
+| `/app/accounts/open` | `POST /v1/accounts/create` | Opens an account and selects it. |
+| `/app/accounts/[n]` | `GET /v1/accounts/{n}`, history | Any account on this device, not only the active one. |
+
+## A transfer is not one request
+
+`POST /v1/transactions/transfer` answers as soon as the sender has been debited and
+`transaction.initiated` has been published - with status `PROCESSING`. What happens next arrives over
+Kafka:
+
+<SequenceDiagram
+  title="What the UI sees during a transfer"
+  tag="/app/transfers"
+  participants={[
+    { id: "ui", label: "Browser", accent: true },
+    { id: "txn", label: "transaction-service" },
+    { id: "fraud", label: "fraud-detection" },
+  ]}
+  steps={[
+    { from: "ui", to: "txn", label: "POST /transfer" },
+    { from: "txn", to: "ui", label: "201 PROCESSING", reply: true },
+    { from: "txn", to: "fraud", label: "transaction.initiated" },
+    { from: "fraud", to: "txn", label: "fraud verdict", reply: true },
+    { from: "ui", to: "txn", label: "GET /transactions/{id}" },
+    { from: "txn", to: "ui", label: "COMPLETED / needs OTP / FLAGGED", reply: true },
+  ]}
+  caption="The UI polls every 2.5 s until the status stops moving."
+/>
+
+So the UI never claims "sent" on the 201. `useTransaction` refetches every 2.5 s while the status is
+`PENDING` or `PROCESSING` and stops as soon as it settles (`src/lib/api/banking.ts`). The wording for
+each status, from the point of view of the account on screen, is in `src/lib/transactions.ts`.
+
+A transfer of ₹50,000 or more becomes `PENDING_VERIFICATION`: the OTP panel appears, the code is
+checked by the backend, and too many wrong tries refund the sender and flag the transfer. The code
+itself never reaches this UI - it travels over `transaction.otp.generated` to notification-service.
+
+## Razorpay top-up
+
+`POST /v1/payments/create-order` returns the order id and the **publishable** key; Checkout is loaded
+on demand from `checkout.razorpay.com` (`src/lib/payments/razorpay.ts`), so no third-party script runs
+on any other page. The amount is not recomputed in the browser: with `order_id` set, Razorpay takes it
+from the order.
+
+Checkout's `handler` only means the customer finished the dialog. The payment is confirmed when
+Razorpay calls the signed webhook, so the screen says **submitted**, not paid - and it says plainly
+that the balance does not move yet, because crediting the account from `payment.completed` is still
+open (`PENDING.md` item 2).
+
+The Content-Security-Policy in `next.config.ts` allows exactly Razorpay's script, frame, images and
+calls, and nothing else third-party.
+
+## Deliberately not there
+
+No sign-in, no cards, no settings, no payees, no statements. A menu entry that leads nowhere is worse
+than no entry, so `BANKING_NAV` lists only routes that exist. `AppShell` shows "Sign out" only when it
+is given an `onSignOut`, and the banking area does not pass one - there is no session to end.

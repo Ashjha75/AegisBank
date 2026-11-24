@@ -96,9 +96,9 @@ Browser ──/api/gateway/v1/**──▶ Next.js server (BFF proxy) ──/api/
 1. ✅ Foundation: tokens, fonts, components, BFF proxy, error model, Docker, docs UI, tests.
 2. Docs pages for each new backend service as it lands (payment, fraud-detection, notification, gateway).
 3. Generate API types from the services' OpenAPI documents (`pnpm api:types`) once the gateway serves them.
-4. Customer site (after the backend is complete): landing page with hero, sign-up/open account,
-   dashboard (balance, recent transactions), transfer flow with OTP step, transaction history,
-   top-up via Razorpay, notifications. Authentication follows whatever the backend adopts.
+4. ✅ Customer app at `/app`: open account, dashboard, transfer flow with the OTP step, transaction
+   history and detail, Razorpay top-up, accounts on this device. Authentication still follows whatever
+   the backend adopts (`PENDING.md` item 3); until then the active account is a `localStorage` value.
 5. End-to-end tests (Playwright) for the transfer flow once it exists.
 
 ## 8. Open questions

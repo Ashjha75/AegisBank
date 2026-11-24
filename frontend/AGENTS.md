@@ -14,8 +14,12 @@ Why things are the way they are: `docs/plan.md`.
 - The frontend talks to the backend **only through the api-gateway**, and only via the server-side
   proxy (`/api/gateway/v1/**`). Never call a service port (8081, 8082, ...) directly, never call
   `/internal/**`, never add `NEXT_PUBLIC_*` variables.
-- The customer site (`/`) is a placeholder until the backend is finished. Don't build customer screens
-  unless the owner asks. The docs UI (`/v1/admin/docs-ui`) is private: never link to it from the site.
+- The customer app lives under `/app` (overview, transfers, add money, transactions, accounts) and is
+  wired to the three client-facing services. Only add a nav entry for a page that exists. The docs UI
+  (`/v1/admin/docs-ui`) is private: never link to it from the site.
+- `/app` has no authentication: the active account comes from `localStorage`
+  (`src/lib/accounts/`), not a session. Read it with `useKnownAccounts()`, never with an effect -
+  see `/v1/admin/docs-ui/frontend/banking-app`.
 
 ## Run it (Docker - no local Node needed)
 

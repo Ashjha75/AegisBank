@@ -8,7 +8,7 @@ icon: LayoutTemplate
 
 The signed-in banking area uses `AppShell` (`src/components/app-shell/app-shell.tsx`): a left sidebar with the main
 sections, a slim top bar with search, help, notifications and the account menu. Below 1024 px the sidebar becomes a
-drawer. It is not wired to routes yet - the customer screens come after the backend.
+drawer. The customer app uses it at `/app` - see [Banking app](./banking-app.mdx).
 
 <GalleryAppShell />
 
@@ -25,7 +25,8 @@ drawer. It is not wired to routes yet - the customer screens come after the back
 `SignInForm` calls `apiFetch` and shows `userMessageFor(error)` on failure.
 
 <Callout type="warn">
-  The sign-in page is a real route but does not authenticate anyone yet. Nothing typed into it is sent anywhere.
+  The sign-in page is a real route but does not authenticate anyone yet. Nothing typed into it is sent anywhere,
+  and nothing links to it: the app at `/app` picks an account instead of signing in.
 </Callout>
 
 ## Error and status pages
