@@ -120,6 +120,32 @@ public class PaymentService {
     }
 
     private void handlePaymentFailed(String payload) {
+        try {
+            Map<String, Object> paymentData = extractPaymentData(payload);
+            String razorpayOrderId = (String) paymentData.get("razorpayOrderId");
+            String razorpayPaymentId = (String) paymentData.get("razorpayPaymentId");
+
+            Payment payment = paymentRepository.findByRazorpayOrderId(razorpayOrderId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found for order id: " + razorpayOrderId));
+            payment.setStatus(PaymentStatus.FAILED);
+            payment.setFailureReason("Payment Failed via Razorpay webhook");
+            paymentRepository.save(payment);
+
+//            Publish completed Payment event
+
+            Map<String, Object> eventPayload = new HashMap<>();
+            eventPayload.put("paymentId", payment.getId());
+            eventPayload.put("accountNumber", payment.getAccountNumber());
+            eventPayload.put("amount", payment.getAmount());
+            eventPayload.put("reason", payment.getFailureReason());
+
+            kafkaTemplate.send(PAYMENT_FAILED_TOPIC, payment.getId(), eventPayload);
+            log.info("Payment failed event published for payment id: {}", payment.getId());
+
+
+        } catch (Exception e) {
+            log.error("Error occurred while handling payment failed webhook", e);
+        }
     }
 
     private void handlePaymentCompleted(String payload) {
