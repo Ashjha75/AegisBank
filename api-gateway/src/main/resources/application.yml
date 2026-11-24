@@ -2,8 +2,8 @@
 # SERVICES - where every downstream service runs. The one place to edit.
 # Each URL comes from api-gateway/.env, so a service can sit on another port or
 # another server (e.g. ACCOUNT_SERVICE_URL=http://10.0.0.12:8081) with no code change.
-# To add a service: add it here, add an API route + a docs route below, and add
-# it to springdoc.swagger-ui.urls.
+# To add a service: add it here, add an API route in config/GatewayRoutesConfig.java (rate limited),
+# a docs route below, and add it to springdoc.swagger-ui.urls.
 # ===========================================================================
 services:
   account: ${ACCOUNT_SERVICE_URL:http://localhost:8081}
@@ -23,6 +23,7 @@ spring:
   config:
     import: ${APP_ENV_FILE:file:.env[.properties]}
 
+  # Redis holds the rate-limit counters (see config/RateLimitConfig.java).
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -30,25 +31,15 @@ spring:
       password: ${REDIS_PASSWORD}   # required - must match REDIS_PASSWORD in the root .env
 
   # Every client request comes in on :8080 and is forwarded to the owning service.
+  # The client API routes (/api/v1/accounts, /transactions, /payments) are defined in
+  # config/GatewayRoutesConfig.java, because their rate limit needs Java (a per-client key resolver).
+  # Note: this is the WebMVC gateway - the WebFlux "RequestRateLimiter" / "redis-rate-limiter" filter
+  # does not exist here.
   cloud:
     gateway:
       server:
         webmvc:
           routes:
-            # --- API routes -------------------------------------------------------
-            - id: account-service
-              uri: ${services.account}
-              predicates:
-                - Path=/api/v1/accounts/**
-            - id: transaction-service
-              uri: ${services.transaction}
-              predicates:
-                - Path=/api/v1/transactions/**
-            - id: payment-service
-              uri: ${services.payment}
-              predicates:
-                - Path=/api/v1/payments/**
-
             # --- API docs routes (for Swagger UI) ---------------------------------
             # /docs/account/v3/api-docs -> account-service /v3/api-docs (StripPrefix drops "/docs/account").
             # The browser only talks to the gateway, so there are no CORS problems.
@@ -70,6 +61,13 @@ spring:
                 - Path=/docs/payment/v3/api-docs
               filters:
                 - StripPrefix=2
+
+# Rate limit per client IP on every /api/v1/** route (RateLimitProperties). Over the limit -> 429.
+# A client can send burst-capacity requests at once and gets replenish-rate requests back per second.
+gateway:
+  rate-limit:
+    replenish-rate: ${GATEWAY_RATE_LIMIT_REPLENISH_RATE}
+    burst-capacity: ${GATEWAY_RATE_LIMIT_BURST_CAPACITY}
 
 # Combined Swagger UI: http://localhost:8080/swagger-ui.html
 # One dropdown entry per service. Set SWAGGER_ENABLED=false in production to hide it.
