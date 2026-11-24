@@ -26,6 +26,16 @@ spring:
     consumer:
       group-id: payment-service
       auto-offset-reset: earliest
+    # payment.completed / payment.failed are sent as JSON (a Map), keyed by payment id.
+    # Without these the default StringSerializer fails on every send.
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+      properties:
+        # No Java class names in headers - consumers read plain JSON.
+        spring.json.add.type.headers: false
+        # If Kafka is down, fail after 5 s instead of blocking the webhook for 60 s.
+        max.block.ms: 5000
 
 # Razorpay credentials - required, from payment-service/.env. Never commit real keys.
 razorpay:
