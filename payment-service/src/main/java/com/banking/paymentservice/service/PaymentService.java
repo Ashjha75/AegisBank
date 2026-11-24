@@ -1,15 +1,22 @@
 package com.banking.paymentservice.service;
 
-import com.banking.paymentservice.config.RazorpayProperties;
 import com.banking.paymentservice.dto.CreatePaymentRequest;
 import com.banking.paymentservice.dto.PaymentOrderResponse;
+import com.banking.paymentservice.entity.Payment;
+import com.banking.paymentservice.entity.PaymentStatus;
 import com.banking.paymentservice.repository.PaymentRepository;
+import com.razorpay.Order;
 import com.razorpay.RazorpayClient;
+import com.razorpay.RazorpayException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.UUID;
 
 /**
  * Razorpay payments into AegisBank accounts.
@@ -22,17 +29,18 @@ import org.springframework.web.server.ResponseStatusException;
 public class PaymentService {
 
     private final PaymentRepository paymentRepository;
-    /** Shared client from RazorpayConfig, e.g. razorpayClient.orders.create(orderJson). */
-    private final RazorpayClient razorpayClient;
-    /** keyId() goes into PaymentOrderResponse for Checkout; webhookSecret() verifies webhooks. */
-    private final RazorpayProperties razorpayProperties;
 
-    private static  final String  PAYMENT_COMPLETED_TOPIC = "payment.completed";
-    private static  final String  PAYMENT_FAILED_TOPIC = "payment.failed";
+    @Value("${razorpay.key.id}")
+    private String keyId;
+    @Value("${razorpay.key.secret}")
+    private String keySecret;
+
+    private static final String PAYMENT_COMPLETED_TOPIC = "payment.completed";
+    private static final String PAYMENT_FAILED_TOPIC = "payment.failed";
 
     /**
      * Create Razorpay payment order
-     *<pre>
+     * <pre>
      * Flow:
      * 1. Create order in Razorpay (with amount, currency, receipt id, etc.)
      * 2. Save the order id in our Payment entity (status CREATED)
@@ -40,17 +48,50 @@ public class PaymentService {
      * 4. Frontend will use the order id to open Razorpay checkout and complete the payment.
      * 5. Razorpay will call our webhook when the payment is completed or failed.
      * </pre>
+     *
      * @param request
      * @return
      */
 
-    public PaymentOrderResponse createPaymentOrder(CreatePaymentRequest request) {
+    public PaymentOrderResponse createPaymentOrder(CreatePaymentRequest request) throws RazorpayException {
         log.info("Creating payment order for account {} with amount {}", request.accountNumber(), request.amount());
 
-        // TODO: use the injected razorpayClient (don't create a new one per request). Its calls throw the
-        //  checked com.razorpay.RazorpayException - catch it here and rethrow an unchecked exception
-        //  instead of adding "throws" to the controller.
-        throw notImplemented("createPaymentOrder");
+        RazorpayClient razorPayClient = new RazorpayClient(keyId, keySecret);
+        //Convert amount to paise (as Razorpay expects amount in the smallest currency unit)
+        int convertedAmount = request.amount().
+                multiply(java.math.BigDecimal.valueOf(100)).
+                intValue();
+
+        JSONObject orderRequest = new JSONObject();
+        orderRequest.put("amount", convertedAmount);
+        orderRequest.put("currency", "INR");
+        orderRequest.put("receipt", "rcpt_" + System.currentTimeMillis() + UUID.randomUUID().toString().
+                replace("-", "").substring(0, 10));
+
+        Order razorpayOrder = razorPayClient.orders.create(orderRequest);
+
+        log.info("Razorpay order created with id {}", razorpayOrder.get("id").toString());
+
+//        Save Payment Record in Database with status CREATED
+        Payment payment = Payment.builder()
+                .razorpayOrderId(razorpayOrder.get("id").toString())
+                .accountNumber(request.accountNumber())
+                .amount(request.amount())
+                .currency("INR")
+                .status(PaymentStatus.CREATED)
+                .description(request.description())
+                .build();
+
+        paymentRepository.save(payment);
+
+        return new PaymentOrderResponse(
+                payment.getId(),
+                payment.getRazorpayOrderId(),
+                payment.getAmount(),
+                payment.getCurrency(),
+                payment.getStatus(),
+                keyId
+        );
     }
 
     /**
