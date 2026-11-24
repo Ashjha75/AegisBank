@@ -47,6 +47,11 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-webmvc</artifactId>
 		</dependency>
+		<!-- Bean Validation for request DTOs (@NotBlank, @Positive, ...) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
 		<!-- OpenAPI / Swagger: see api-gateway application.yml for the combined UI -->
 		<dependency>
 			<groupId>org.springdoc</groupId>
