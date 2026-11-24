@@ -9,7 +9,8 @@ import com.banking.transactionservice.entity.Transaction;
 import com.banking.transactionservice.entity.TransactionStatus;
 import com.banking.transactionservice.entity.TransactionType;
 import com.banking.transactionservice.event.TransactionCompletedEvent;
-import com.banking.transactionservice.event.TransactionFailedEvent;
+import com.banking.transactionservice.event.FraudDetectedEvent;
+import com.banking.transactionservice.event.TransactionRefundedEvent;
 import com.banking.transactionservice.event.TransactionInitiatedEvent;
 import com.banking.transactionservice.exception.*;
 import com.banking.transactionservice.mapper.TransactionMapper;
@@ -61,10 +62,7 @@ public class TransactionService {
      */
     private static final Pattern PROBLEM_DETAIL = Pattern.compile("\"detail\"\\s*:\\s*\"([^\"]*)\"");
 
-
-    // Topic names must match the consumers exactly - no spaces.
-    private static final String TRANSACTION_INITIATED_TOPIC = "transaction.initiated";
-    private static final String TRANSACTION_REFUNDED_TOPIC = "transaction.refunded";
+    // Kafka topic names live in KafkaConfig (initiated, completed, refunded, fraud.detected, otp.generated).
 
     private final TransactionRepository transactionRepository;
     private final TransactionMapper transactionMapper;
@@ -132,11 +130,11 @@ public class TransactionService {
                 transaction.getDescription(),
                 LocalDateTime.now());
         try {
-            kafkaTemplate.send(TRANSACTION_INITIATED_TOPIC, transaction.getId(), event)
+            kafkaTemplate.send(KafkaConfig.TRANSACTION_INITIATED_TOPIC, transaction.getId(), event)
                     .whenComplete((result, ex) -> {
                         if (ex != null) {
                             log.error("Transfer {}: could not publish {} - re-publish it later",
-                                    transaction.getReferenceNumber(), TRANSACTION_INITIATED_TOPIC, ex);
+                                    transaction.getReferenceNumber(), KafkaConfig.TRANSACTION_INITIATED_TOPIC, ex);
                         } else {
                             log.info("SAGA step 2 - TransactionInitiatedEvent published for transfer {} (id {})",
                                     transaction.getReferenceNumber(), transaction.getId());
@@ -145,7 +143,7 @@ public class TransactionService {
         } catch (RuntimeException ex) {
             // e.g. Kafka unreachable for max.block.ms (5 s)
             log.error("Transfer {}: could not publish {} - re-publish it later",
-                    transaction.getReferenceNumber(), TRANSACTION_INITIATED_TOPIC, ex);
+                    transaction.getReferenceNumber(), KafkaConfig.TRANSACTION_INITIATED_TOPIC, ex);
         }
     }
 
@@ -226,13 +224,16 @@ public class TransactionService {
 
         switch (otpService.verify(transactionId, otp)) {
             case EXPIRED -> {
-                return flagAndRefund(transaction, "OTP expired");
+                // Customer just didn't confirm in time - refund, but no fraud alert / no account block.
+                return flagAndRefund(transaction, "OTP expired", false);
             }
             case WRONG -> {
                 transaction.setOtpAttempts(transaction.getOtpAttempts() + 1);
                 int attemptsLeft = otpProperties.maxAttempts() - transaction.getOtpAttempts();
                 if (attemptsLeft <= 0) {
-                    return flagAndRefund(transaction, "Too many wrong OTP attempts");
+                    // Someone without the sender's OTP is trying to move their money: refund + fraud.detected
+                    // (account-service blocks the sender's account).
+                    return flagAndRefund(transaction, "Too many wrong OTP attempts", true);
                 }
                 transactionRepository.save(transaction);
                 throw new InvalidOtpException(attemptsLeft);
@@ -279,8 +280,12 @@ public class TransactionService {
             accountClient.creditBalance(transaction.getReceiverAccountNumber(), transaction.getAmount());
         } catch (FeignException e) {
             String reason = "Could not credit receiver: " + reason(e);
-            markFailed(transaction, refundSender(transaction) ? reason + " (sender refunded)"
+            boolean refunded = refundSender(transaction);
+            markFailed(transaction, refunded ? reason + " (sender refunded)"
                     : reason + " (sender refund FAILED - needs manual check)");
+            if (refunded) {
+                publishTransactionRefunded(transaction);
+            }
             return transactionMapper.toResponse(transaction);
         }
         transaction.setStatus(TransactionStatus.COMPLETED);
@@ -301,15 +306,25 @@ public class TransactionService {
                 transaction.getCompletedAt()));
     }
 
-    /** Tells notification-service that the transfer ended FAILED or FLAGGED (status + reason in the event). */
-    private void publishTransactionFailed(Transaction transaction) {
-        publishQuietly(KafkaConfig.TRANSACTION_FAILED_TOPIC, transaction, new TransactionFailedEvent(
+    /** The sender got the deducted amount back (published only when the refund actually succeeded). */
+    private void publishTransactionRefunded(Transaction transaction) {
+        publishQuietly(KafkaConfig.TRANSACTION_REFUNDED_TOPIC, transaction, new TransactionRefundedEvent(
                 transaction.getId(),
                 transaction.getSenderAccountNumber(),
                 transaction.getReceiverAccountNumber(),
                 transaction.getAmount(),
-                transaction.getStatus().name(),
                 transaction.getFailureReason(),
+                LocalDateTime.now()));
+    }
+
+    /** Fraud confirmed on the sender's account - account-service blocks it, notification-service warns the holder. */
+    private void publishFraudDetected(Transaction transaction, String reason) {
+        publishQuietly(KafkaConfig.FRAUD_DETECTED_TOPIC, transaction, new FraudDetectedEvent(
+                transaction.getId(),
+                transaction.getSenderAccountNumber(),
+                transaction.getReceiverAccountNumber(),
+                transaction.getAmount(),
+                reason,
                 LocalDateTime.now()));
     }
 
@@ -349,14 +364,25 @@ public class TransactionService {
         }
     }
 
-    private TransactionResponse flagAndRefund(Transaction transaction, String reason) {
+    /**
+     * Stops a PENDING_VERIFICATION transfer: FLAGGED + refund the sender.
+     *
+     * @param fraud true when fraud is confirmed (too many wrong OTPs) - also publishes fraud.detected
+     */
+    private TransactionResponse flagAndRefund(Transaction transaction, String reason, boolean fraud) {
         otpService.delete(transaction.getId());
         transaction.setStatus(TransactionStatus.FLAGGED);
-        transaction.setFailureReason(refundSender(transaction) ? reason + " (sender refunded)"
+        boolean refunded = refundSender(transaction);
+        transaction.setFailureReason(refunded ? reason + " (sender refunded)"
                 : reason + " (sender refund FAILED - needs manual check)");
         log.warn("Transfer {} flagged: {}", transaction.getReferenceNumber(), transaction.getFailureReason());
         transaction = transactionRepository.save(transaction);
-        publishTransactionFailed(transaction);
+        if (refunded) {
+            publishTransactionRefunded(transaction);
+        }
+        if (fraud) {
+            publishFraudDetected(transaction, reason);
+        }
         return transactionMapper.toResponse(transaction);
     }
 
@@ -365,7 +391,6 @@ public class TransactionService {
         transaction.setFailureReason(reason);
         transactionRepository.save(transaction);
         log.warn("Transfer {} failed: {}", transaction.getReferenceNumber(), reason);
-        publishTransactionFailed(transaction);
     }
 
     // ---------------------------------------------------------------- helpers

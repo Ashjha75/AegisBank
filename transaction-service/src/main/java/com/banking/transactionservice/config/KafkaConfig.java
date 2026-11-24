@@ -31,8 +31,10 @@ public class KafkaConfig {
     public static final String OTP_GENERATED_TOPIC = "transaction.otp.generated";
     /** Published here once the receiver is credited. Informational only - nobody may move money on it. */
     public static final String TRANSACTION_COMPLETED_TOPIC = "transaction.completed";
-    /** Published here when a transfer ends FAILED or FLAGGED. Informational only (notification-service). */
-    public static final String TRANSACTION_FAILED_TOPIC = "transaction.failed";
+    /** Published here after the sender was refunded. Informational only (notification-service). */
+    public static final String TRANSACTION_REFUNDED_TOPIC = "transaction.refunded";
+    /** Published here on too many wrong OTPs. account-service blocks the sender; notification-service warns them. */
+    public static final String FRAUD_DETECTED_TOPIC = "fraud.detected";
 
     @Bean
     public NewTopic transactionInitiatedTopic() {
@@ -50,8 +52,13 @@ public class KafkaConfig {
     }
 
     @Bean
-    public NewTopic transactionFailedTopic() {
-        return TopicBuilder.name(TRANSACTION_FAILED_TOPIC).partitions(3).replicas(1).build();
+    public NewTopic transactionRefundedTopic() {
+        return TopicBuilder.name(TRANSACTION_REFUNDED_TOPIC).partitions(3).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic fraudDetectedTopic() {
+        return TopicBuilder.name(FRAUD_DETECTED_TOPIC).partitions(3).replicas(1).build();
     }
 
     @Bean
