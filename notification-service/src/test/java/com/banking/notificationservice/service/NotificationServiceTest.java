@@ -5,7 +5,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 
-import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,26 +31,46 @@ class NotificationServiceTest {
     }
 
     @Test
-    void flaggedTransferAlertsSenderWithReason(CapturedOutput output) {
-        service.sendFailedAlertNotification(Map.of("transactionId", "tx-1",
-                "senderAccountNumber", SENDER, "receiverAccountNumber", RECEIVER, "amount", 75000,
-                "status", "FLAGGED", "reason", "OTP expired (sender refunded)"));
+    void initiatedTransferAlertsSender(CapturedOutput output) {
+        service.sendInitiatedAlertNotification(Map.of("transactionId", "tx-1",
+                "senderAccountNumber", SENDER, "receiverAccountNumber", RECEIVER, "amount", 500,
+                "description", "rent"));
 
-        assertThat(output).contains("to account XXXXXXXX7853 - Transfer of INR 75000.00 cancelled")
-                .contains("was cancelled for your security")
-                .contains("OTP expired (sender refunded)");
+        assertThat(output).contains("to account XXXXXXXX7853 - Transfer of INR 500.00 initiated")
+                .contains("is being processed");
     }
 
     @Test
-    void failedTransferWithoutReceiverStillAlertsSender(CapturedOutput output) {
-        Map<String, Object> payload = new HashMap<>(Map.of("transactionId", "tx-1",
-                "senderAccountNumber", SENDER, "amount", "120.00", "status", "FAILED",
-                "reason", "Could not deduct sender: Insufficient balance"));
+    void refundedTransferAlertsSenderWithReason(CapturedOutput output) {
+        service.sendRefundedAlertNotification(Map.of("transactionId", "tx-1",
+                "senderAccountNumber", SENDER, "receiverAccountNumber", RECEIVER, "amount", 75000,
+                "reason", "OTP expired (sender refunded)"));
 
-        service.sendFailedAlertNotification(payload);
+        assertThat(output).contains("to account XXXXXXXX7853 - Refund of INR 75000.00")
+                .contains("credited back").contains("OTP expired (sender refunded)");
+    }
 
-        assertThat(output).contains("Transfer of INR 120.00 failed").contains("could not be completed")
-                .contains("Insufficient balance");
+    @Test
+    void fraudDetectedWarnsSenderAboutTheBlock(CapturedOutput output) {
+        service.sendFraudAlertNotification(Map.of("transactionId", "tx-1",
+                "senderAccountNumber", SENDER, "receiverAccountNumber", RECEIVER, "amount", 75000,
+                "reason", "Too many wrong OTP attempts"));
+
+        assertThat(output).contains("to account XXXXXXXX7853 - Security alert: your account has been blocked")
+                .contains("Too many wrong OTP attempts");
+    }
+
+    @Test
+    void paymentCompletedAndFailedAlertTheAccountHolder(CapturedOutput output) {
+        service.sendPaymentCompletedAlertNotification(Map.of("paymentId", "p-1", "accountNumber", SENDER,
+                "amount", 499.99, "razorpayPaymentId", "pay_123"));
+        service.sendPaymentFailedAlertNotification(Map.of("paymentId", "p-2", "accountNumber", SENDER,
+                "amount", 100, "reason", "Card declined"));
+
+        assertThat(output).contains("to account XXXXXXXX7853 - Payment of INR 499.99 successful")
+                .contains("pay_123")
+                .contains("to account XXXXXXXX7853 - Payment of INR 100.00 failed")
+                .contains("Card declined");
     }
 
     @Test
@@ -68,9 +87,12 @@ class NotificationServiceTest {
         assertThatThrownBy(() -> service.sendCompletedAlertNotification(Map.of("transactionId", "tx-1",
                 "receiverAccountNumber", RECEIVER, "amount", 10)))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("senderAccountNumber");
-        assertThatThrownBy(() -> service.sendFailedAlertNotification(Map.of("transactionId", "tx-1",
+        assertThatThrownBy(() -> service.sendRefundedAlertNotification(Map.of("transactionId", "tx-1",
                 "senderAccountNumber", SENDER, "amount", "ten")))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("amount");
+        assertThatThrownBy(() -> service.sendPaymentCompletedAlertNotification(Map.of("paymentId", "p-1",
+                "amount", 10)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("accountNumber");
     }
 
     @Test
