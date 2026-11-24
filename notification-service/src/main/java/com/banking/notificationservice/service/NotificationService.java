@@ -138,7 +138,7 @@ public class NotificationService {
      * @param sensitive true when the message contains an OTP: then the text is never written to the log
      */
     private void sendAlert(String accountNumber, String subject, String message, boolean sensitive) {
-        log.info("[ALERT] to account {} - {}: {}", mask(accountNumber), subject,
+        log.info("O_O [ALERT] to account {} - {}: {}", mask(accountNumber), subject,
                 sensitive ? "<hidden: contains OTP>" : message);
     }
 
