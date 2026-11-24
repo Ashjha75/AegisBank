@@ -12,6 +12,7 @@ import com.banking.transactionservice.exception.DownstreamServiceException;
 import com.banking.transactionservice.exception.InvalidOtpException;
 import com.banking.transactionservice.exception.InvalidTransactionStateException;
 import com.banking.transactionservice.exception.InvalidTransferException;
+import com.banking.transactionservice.exception.ResourceNotFoundException;
 import com.banking.transactionservice.mapper.TransactionMapper;
 import com.banking.transactionservice.repository.TransactionRepository;
 import feign.FeignException;
@@ -25,9 +26,6 @@ import org.springframework.kafka.core.KafkaTemplate;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.time.LocalDateTime;
-import java.util.HexFormat;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -39,6 +37,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -54,6 +53,7 @@ class TransactionServiceTest {
     private TransactionRepository repository;
     private AccountClient accountClient;
     private KafkaTemplate<String, Object> kafkaTemplate;
+    private OtpService otpService;
     private TransactionService service;
 
     @BeforeEach
@@ -62,10 +62,12 @@ class TransactionServiceTest {
         repository = mock(TransactionRepository.class);
         accountClient = mock(AccountClient.class);
         kafkaTemplate = mock(KafkaTemplate.class);
+        otpService = mock(OtpService.class);
+        when(otpService.generate(anyString())).thenReturn("654321");
         when(repository.save(any(Transaction.class))).thenAnswer(inv -> inv.getArgument(0));
         when(kafkaTemplate.send(anyString(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
         service = new TransactionService(repository, new TransactionMapper(), accountClient,
-                new OtpProperties(new BigDecimal("50000"), 5, 3), kafkaTemplate);
+                new OtpProperties(new BigDecimal("50000"), 5, 3), kafkaTemplate, otpService);
     }
 
     // ------------------------------------------------------------- transfer
@@ -93,7 +95,7 @@ class TransactionServiceTest {
     }
 
     @Test
-    void bigTransferAlsoStaysProcessingWhileOtpStepIsDisabled() {
+    void bigTransferAlsoStaysProcessingUntilFraudCheckAnswers() {
         TransactionResponse result = service.transfer(new TransferRequest(SENDER, RECEIVER, BIG, null));
 
         assertThat(result.status()).isEqualTo(TransactionStatus.PROCESSING);
@@ -144,7 +146,8 @@ class TransactionServiceTest {
     @Test
     void failedCreditRefundsTheSender() {
         // credit only happens via verifyOTP while the transfer() credit step is disabled
-        pendingVerification("123456", 0);
+        pendingVerification(0);
+        when(otpService.verify("tx-1", "123456")).thenReturn(OtpService.Result.VALID);
         when(accountClient.creditBalance(RECEIVER, BIG)).thenThrow(feignError(404,
                 "{\"detail\":\"Account not found with accountNumber: 223456789012\"}"));
 
@@ -161,22 +164,85 @@ class TransactionServiceTest {
                 .isInstanceOf(InvalidTransferException.class);
     }
 
+    // ------------------------------------------------------------- fraud-detection answers
+
+    @Test
+    void cleanSmallTransferCreditsReceiverAndCompletes() {
+        Transaction transaction = processing(SMALL);
+
+        service.handleFraudCheckClean("tx-1");
+
+        assertThat(transaction.getStatus()).isEqualTo(TransactionStatus.COMPLETED);
+        verify(accountClient).creditBalance(RECEIVER, SMALL);
+        verify(otpService, never()).generate(anyString());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void cleanHighValueTransferStillNeedsOtp() {
+        Transaction transaction = processing(BIG);
+
+        service.handleFraudCheckClean("tx-1");
+
+        assertThat(transaction.getStatus()).isEqualTo(TransactionStatus.PENDING_VERIFICATION);
+        verify(accountClient, never()).creditBalance(anyString(), any());
+        ArgumentCaptor<Object> event = ArgumentCaptor.forClass(Object.class);
+        verify(kafkaTemplate).send(eq("transaction.otp.generated"), eq("tx-1"), event.capture());
+        assertThat((Map<String, Object>) event.getValue())
+                .containsEntry("otp", "654321")
+                .containsEntry("senderAccountNumber", SENDER)
+                .containsEntry("reason", "High-value transfer");
+    }
+
+    @Test
+    void verificationRequiredIssuesOtpWithFraudReason() {
+        Transaction transaction = processing(SMALL);
+
+        service.handleVerificationRequired("tx-1", "Velocity check failed");
+
+        assertThat(transaction.getStatus()).isEqualTo(TransactionStatus.PENDING_VERIFICATION);
+        assertThat(transaction.getOtpAttempts()).isZero();
+        verify(otpService).generate("tx-1");
+        verify(kafkaTemplate).send(eq("transaction.otp.generated"), eq("tx-1"), any());
+        verify(accountClient, never()).creditBalance(anyString(), any());
+    }
+
+    @Test
+    void duplicateFraudEventIsIgnored() {
+        Transaction transaction = processing(SMALL);
+        transaction.setStatus(TransactionStatus.COMPLETED);
+
+        service.handleFraudCheckClean("tx-1");
+        service.handleVerificationRequired("tx-1", "x");
+
+        verifyNoInteractions(accountClient, otpService);
+    }
+
+    @Test
+    void fraudEventForUnknownTransactionFails() {
+        when(repository.findByIdForUpdate("nope")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.handleFraudCheckClean("nope"))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
     // ------------------------------------------------------------- verifyOTP
 
     @Test
     void rightOtpCreditsReceiverAndCompletes() {
-        Transaction pending = pendingVerification("123456", 0);
+        pendingVerification(0);
+        when(otpService.verify("tx-1", "123456")).thenReturn(OtpService.Result.VALID);
 
         TransactionResponse result = service.verifyOTP("tx-1", "123456");
 
         assertThat(result.status()).isEqualTo(TransactionStatus.COMPLETED);
-        assertThat(pending.getOtpHash()).isNull();
         verify(accountClient).creditBalance(RECEIVER, BIG);
     }
 
     @Test
     void wrongOtpCountsTheAttemptAndTellsAttemptsLeft() {
-        Transaction pending = pendingVerification("123456", 0);
+        Transaction pending = pendingVerification(0);
+        when(otpService.verify("tx-1", "000000")).thenReturn(OtpService.Result.WRONG);
 
         assertThatThrownBy(() -> service.verifyOTP("tx-1", "000000"))
                 .isInstanceOf(InvalidOtpException.class)
@@ -187,55 +253,59 @@ class TransactionServiceTest {
 
     @Test
     void lastWrongOtpFlagsTransferAndRefundsSender() {
-        pendingVerification("123456", 2);
+        pendingVerification(2);
+        when(otpService.verify("tx-1", "000000")).thenReturn(OtpService.Result.WRONG);
 
         TransactionResponse result = service.verifyOTP("tx-1", "000000");
 
         assertThat(result.status()).isEqualTo(TransactionStatus.FLAGGED);
         verify(accountClient).creditBalance(SENDER, BIG);
         verify(accountClient, never()).creditBalance(RECEIVER, BIG);
+        verify(otpService).delete("tx-1");
     }
 
     @Test
     void expiredOtpFlagsTransferAndRefundsSender() {
-        Transaction pending = pendingVerification("123456", 0);
-        pending.setOtpExpiresAt(LocalDateTime.now().minusMinutes(1));
+        pendingVerification(0);
+        when(otpService.verify("tx-1", "123456")).thenReturn(OtpService.Result.EXPIRED);
 
         TransactionResponse result = service.verifyOTP("tx-1", "123456");
 
         assertThat(result.status()).isEqualTo(TransactionStatus.FLAGGED);
-        verify(accountClient).creditBalance(SENDER, BIG);
+        assertThat(result.failureReason()).contains("OTP expired");
+        verify(accountClient, times(1)).creditBalance(SENDER, BIG);
     }
 
     @Test
     void cannotVerifyACompletedTransfer() {
-        Transaction done = pendingVerification("123456", 0);
+        Transaction done = pendingVerification(0);
         done.setStatus(TransactionStatus.COMPLETED);
 
         assertThatThrownBy(() -> service.verifyOTP("tx-1", "123456"))
                 .isInstanceOf(InvalidTransactionStateException.class);
+        verifyNoInteractions(otpService);
     }
 
     // ------------------------------------------------------------- helpers
 
-    private Transaction pendingVerification(String otp, int attempts) {
+    private Transaction pendingVerification(int attempts) {
         Transaction transaction = Transaction.builder()
                 .id("tx-1").senderAccountNumber(SENDER).receiverAccountNumber(RECEIVER).amount(BIG)
                 .type(TransactionType.TRANSFER).status(TransactionStatus.PENDING_VERIFICATION)
-                .referenceNumber("TXN1").otpHash(sha256(otp)).otpAttempts(attempts)
-                .otpExpiresAt(LocalDateTime.now().plusMinutes(5))
+                .referenceNumber("TXN1").otpAttempts(attempts)
                 .build();
         when(repository.findByIdForUpdate("tx-1")).thenReturn(Optional.of(transaction));
         return transaction;
     }
 
-    private static String sha256(String value) {
-        try {
-            return HexFormat.of().formatHex(
-                    MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
-        }
+    private Transaction processing(BigDecimal amount) {
+        Transaction transaction = Transaction.builder()
+                .id("tx-1").senderAccountNumber(SENDER).receiverAccountNumber(RECEIVER).amount(amount)
+                .type(TransactionType.TRANSFER).status(TransactionStatus.PROCESSING)
+                .referenceNumber("TXN1")
+                .build();
+        when(repository.findByIdForUpdate("tx-1")).thenReturn(Optional.of(transaction));
+        return transaction;
     }
 
     private static FeignException feignError(int status, String body) {
