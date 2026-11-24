@@ -54,22 +54,78 @@ public class NotificationService {
                 false);
     }
 
-    /** Transfer did not go through (event: transaction.failed, status FAILED or FLAGGED): alert the sender. */
-    public void sendFailedAlertNotification(Map<String, Object> payload) {
+    /** Transfer started (event: transaction.initiated): the sender was debited, fraud check running. */
+    public void sendInitiatedAlertNotification(Map<String, Object> payload) {
         String transactionId = requiredText(payload, "transactionId");
         String sender = requiredText(payload, "senderAccountNumber");
-        String receiver = optionalText(payload, "receiverAccountNumber", null);
+        String receiver = requiredText(payload, "receiverAccountNumber");
         String amount = formatAmount(payload);
-        String status = optionalText(payload, "status", "FAILED");
-        String reason = optionalText(payload, "reason", "Unknown reason");
-        log.info("Sending failed alert for transaction {} ({})", transactionId, status);
+        log.info("Sending initiated alert for transaction {}", transactionId);
 
-        // FLAGGED = stopped for security (OTP expired / too many wrong OTPs); FAILED = could not be completed.
-        String what = "FLAGGED".equals(status) ? "was cancelled for your security" : "could not be completed";
-        String to = receiver == null ? "" : " to account " + mask(receiver);
-        sendAlert(sender, "Transfer of " + amount + " " + ("FLAGGED".equals(status) ? "cancelled" : "failed"),
-                String.format("Your transfer of %s%s %s. Reason: %s. Transaction id: %s.",
-                        amount, to, what, reason, transactionId),
+        sendAlert(sender, "Transfer of " + amount + " initiated",
+                String.format("%s has been debited from your account %s for a transfer to account %s. "
+                                + "It is being processed. Transaction id: %s.",
+                        amount, mask(sender), mask(receiver), transactionId),
+                false);
+    }
+
+    /** Transfer cancelled and money returned (event: transaction.refunded): alert the sender. */
+    public void sendRefundedAlertNotification(Map<String, Object> payload) {
+        String transactionId = requiredText(payload, "transactionId");
+        String sender = requiredText(payload, "senderAccountNumber");
+        String amount = formatAmount(payload);
+        String reason = optionalText(payload, "reason", "Transfer could not be completed");
+        log.info("Sending refunded alert for transaction {}", transactionId);
+
+        sendAlert(sender, "Refund of " + amount,
+                String.format("Your transfer of %s was cancelled and %s has been credited back to your account %s. "
+                                + "Reason: %s. Transaction id: %s.",
+                        amount, amount, mask(sender), reason, transactionId),
+                false);
+    }
+
+    /** Fraud confirmed (event: fraud.detected): account-service has blocked the sender's account - warn them. */
+    public void sendFraudAlertNotification(Map<String, Object> payload) {
+        String transactionId = requiredText(payload, "transactionId");
+        String sender = requiredText(payload, "senderAccountNumber");
+        String amount = formatAmount(payload);
+        String reason = optionalText(payload, "reason", "Suspicious activity");
+        log.info("Sending fraud alert for transaction {}", transactionId);
+
+        sendAlert(sender, "Security alert: your account has been blocked",
+                String.format("We stopped a transfer of %s from your account %s (%s) and blocked the account "
+                                + "to protect your money. If this wasn't you, contact the bank immediately. "
+                                + "Transaction id: %s.",
+                        amount, mask(sender), reason, transactionId),
+                false);
+    }
+
+    /** Razorpay payment succeeded (event: payment.completed, from payment-service). */
+    public void sendPaymentCompletedAlertNotification(Map<String, Object> payload) {
+        String paymentId = requiredText(payload, "paymentId");
+        String account = requiredText(payload, "accountNumber");
+        String amount = formatAmount(payload);
+        String razorpayPaymentId = optionalText(payload, "razorpayPaymentId", "-");
+        log.info("Sending payment completed alert for payment {}", paymentId);
+
+        sendAlert(account, "Payment of " + amount + " successful",
+                String.format("Your payment of %s to account %s was successful. Payment id: %s, Razorpay id: %s.",
+                        amount, mask(account), paymentId, razorpayPaymentId),
+                false);
+    }
+
+    /** Razorpay payment failed (event: payment.failed, from payment-service). */
+    public void sendPaymentFailedAlertNotification(Map<String, Object> payload) {
+        String paymentId = requiredText(payload, "paymentId");
+        String account = requiredText(payload, "accountNumber");
+        String amount = formatAmount(payload);
+        String reason = optionalText(payload, "reason", "Payment failed");
+        log.info("Sending payment failed alert for payment {}", paymentId);
+
+        sendAlert(account, "Payment of " + amount + " failed",
+                String.format("Your payment of %s to account %s failed. Reason: %s. "
+                                + "If any money was deducted, Razorpay returns it automatically. Payment id: %s.",
+                        amount, mask(account), reason, paymentId),
                 false);
     }
 
