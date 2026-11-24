@@ -27,15 +27,14 @@ public class AccountEventConsumer {
     // Crediting again here would pay the receiver twice.
 
     /**
-     * Consume fraud.detected event from Kafka. <br>
-     * Blocks the flagged account.
+     * Consume fraud.detected event from Kafka (published by transaction-service on too many wrong OTPs). <br>
+     * Blocks the SENDER's account: someone without the sender's OTP tried to move the sender's money, so that
+     * account is the compromised one. The receiver may be an innocent payee and is not touched.
      */
     @KafkaListener(topics = "fraud.detected")
     public void consumeFraudDetected(@Payload Map<String, Object> payload) {
-        log.info("Received fraud.detected event: {}", payload);
-        // TODO: confirm with fraud-detection-service which account to block - the sender (compromised
-        //  account draining money) is usually the one to block, but this reads receiverAccountNumber.
-        String accountNumber = requiredText(payload, "receiverAccountNumber");
+        log.info("Received fraud.detected event for transaction {}", payload.get("transactionId"));
+        String accountNumber = requiredText(payload, "senderAccountNumber");
 
         log.info("Blocking account {}", accountNumber);
         accountService.blockAccount(accountNumber);
