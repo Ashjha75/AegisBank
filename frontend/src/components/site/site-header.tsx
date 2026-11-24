@@ -31,7 +31,7 @@ export function SiteHeader() {
             In development
           </Badge>
           <Button asChild size="sm">
-            <Link href="/sign-in">Sign in</Link>
+            <Link href="/app">Open the app</Link>
           </Button>
         </div>
       </div>

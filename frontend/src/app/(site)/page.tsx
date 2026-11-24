@@ -54,8 +54,8 @@ export default function HomePage() {
               className="flex flex-wrap items-center gap-3 pt-1"
             >
               <Button asChild size="lg">
-                <Link href="/sign-in">
-                  Sign in
+                <Link href="/app">
+                  Open the app
                   <ArrowRight aria-hidden="true" />
                 </Link>
               </Button>
