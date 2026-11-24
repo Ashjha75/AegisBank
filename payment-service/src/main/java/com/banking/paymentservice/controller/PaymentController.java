@@ -3,7 +3,6 @@ package com.banking.paymentservice.controller;
 import com.banking.paymentservice.dto.CreatePaymentRequest;
 import com.banking.paymentservice.dto.PaymentOrderResponse;
 import com.banking.paymentservice.service.PaymentService;
-import com.razorpay.RazorpayException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -35,7 +34,7 @@ public class PaymentController {
     @ApiResponse(responseCode = "201", description = "Order created")
     @ApiResponse(responseCode = "400", description = "Invalid request (e.g. account number not 12 digits, amount <= 0)")
     @PostMapping("/create-order")
-    public ResponseEntity<PaymentOrderResponse> createPaymentOrder(@Valid @RequestBody CreatePaymentRequest request) throws RazorpayException {
+    public ResponseEntity<PaymentOrderResponse> createPaymentOrder(@Valid @RequestBody CreatePaymentRequest request) {
         log.info("Payment order requested for account {}, amount {}", request.accountNumber(), request.amount());
         return ResponseEntity.status(HttpStatus.CREATED).body(paymentService.createPaymentOrder(request));
     }
