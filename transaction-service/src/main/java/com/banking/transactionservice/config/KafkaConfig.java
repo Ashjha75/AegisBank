@@ -29,6 +29,8 @@ public class KafkaConfig {
     public static final String VERIFICATION_REQUIRED_TOPIC = "verification.required";
     /** Published here, read by notification-service, which sends the OTP to the sender. */
     public static final String OTP_GENERATED_TOPIC = "transaction.otp.generated";
+    /** Published here once the receiver is credited. Informational only - nobody may move money on it. */
+    public static final String TRANSACTION_COMPLETED_TOPIC = "transaction.completed";
 
     @Bean
     public NewTopic transactionInitiatedTopic() {
@@ -38,6 +40,11 @@ public class KafkaConfig {
     @Bean
     public NewTopic otpGeneratedTopic() {
         return TopicBuilder.name(OTP_GENERATED_TOPIC).partitions(3).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic transactionCompletedTopic() {
+        return TopicBuilder.name(TRANSACTION_COMPLETED_TOPIC).partitions(3).replicas(1).build();
     }
 
     @Bean

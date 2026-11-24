@@ -8,6 +8,7 @@ import com.banking.transactionservice.dto.TransferRequest;
 import com.banking.transactionservice.entity.Transaction;
 import com.banking.transactionservice.entity.TransactionStatus;
 import com.banking.transactionservice.entity.TransactionType;
+import com.banking.transactionservice.event.TransactionCompletedEvent;
 import com.banking.transactionservice.event.TransactionInitiatedEvent;
 import com.banking.transactionservice.exception.*;
 import com.banking.transactionservice.mapper.TransactionMapper;
@@ -38,7 +39,8 @@ import java.util.regex.Pattern;
  *
  *  fraud-detection-service answers (TransactionEventConsumer):
  *   fraud.check.clean      -> amount >= OTP threshold: PENDING_VERIFICATION (OTP sent)
- *                             otherwise: credit receiver -> COMPLETED (fails: refund sender, FAILED)
+ *                             otherwise: credit receiver -> COMPLETED + transaction.completed event
+ *                                        (credit fails: refund sender, FAILED)
  *   verification.required  -> PENDING_VERIFICATION (OTP sent)
  *
  *  verifyOTP(): right OTP -> credit receiver;  expired / too many wrong OTPs -> refund sender, FLAGGED
@@ -61,7 +63,6 @@ public class TransactionService {
 
     // Topic names must match the consumers exactly - no spaces.
     private static final String TRANSACTION_INITIATED_TOPIC = "transaction.initiated";
-    private static final String TRANSACTION_COMPLETED_TOPIC = "transaction.completed";
     private static final String TRANSACTION_REFUNDED_TOPIC = "transaction.refunded";
 
     private final TransactionRepository transactionRepository;
@@ -283,8 +284,39 @@ public class TransactionService {
         }
         transaction.setStatus(TransactionStatus.COMPLETED);
         transaction.setCompletedAt(LocalDateTime.now());
+        transaction = transactionRepository.save(transaction);
         log.info("Transfer {} completed", transaction.getReferenceNumber());
-        return transactionMapper.toResponse(transactionRepository.save(transaction));
+        publishTransactionCompleted(transaction);
+        return transactionMapper.toResponse(transaction);
+    }
+
+    /**
+     * Fire-and-forget, like publishTransactionInitiated: the money has already moved, so a Kafka problem
+     * must not throw - that would roll the status back to PROCESSING although the receiver was credited.
+     */
+    private void publishTransactionCompleted(Transaction transaction) {
+        TransactionCompletedEvent event = new TransactionCompletedEvent(
+                transaction.getId(),
+                transaction.getSenderAccountNumber(),
+                transaction.getReceiverAccountNumber(),
+                transaction.getAmount(),
+                transaction.getDescription(),
+                transaction.getCompletedAt());
+        try {
+            kafkaTemplate.send(KafkaConfig.TRANSACTION_COMPLETED_TOPIC, transaction.getId(), event)
+                    .whenComplete((result, ex) -> {
+                        if (ex != null) {
+                            log.error("Transfer {}: could not publish {} - re-publish it later",
+                                    transaction.getReferenceNumber(), KafkaConfig.TRANSACTION_COMPLETED_TOPIC, ex);
+                        } else {
+                            log.info("TransactionCompletedEvent published for transfer {}",
+                                    transaction.getReferenceNumber());
+                        }
+                    });
+        } catch (RuntimeException ex) {
+            log.error("Transfer {}: could not publish {} - re-publish it later",
+                    transaction.getReferenceNumber(), KafkaConfig.TRANSACTION_COMPLETED_TOPIC, ex);
+        }
     }
 
     /**

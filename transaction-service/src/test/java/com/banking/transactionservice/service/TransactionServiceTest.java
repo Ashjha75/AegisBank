@@ -7,6 +7,7 @@ import com.banking.transactionservice.dto.TransferRequest;
 import com.banking.transactionservice.entity.Transaction;
 import com.banking.transactionservice.entity.TransactionStatus;
 import com.banking.transactionservice.entity.TransactionType;
+import com.banking.transactionservice.event.TransactionCompletedEvent;
 import com.banking.transactionservice.event.TransactionInitiatedEvent;
 import com.banking.transactionservice.exception.DownstreamServiceException;
 import com.banking.transactionservice.exception.InvalidOtpException;
@@ -156,6 +157,7 @@ class TransactionServiceTest {
         assertThat(result.status()).isEqualTo(TransactionStatus.FAILED);
         assertThat(result.failureReason()).contains("Account not found").contains("sender refunded");
         verify(accountClient).creditBalance(SENDER, BIG);
+        verify(kafkaTemplate, never()).send(eq("transaction.completed"), any(), any());
     }
 
     @Test
@@ -175,6 +177,27 @@ class TransactionServiceTest {
         assertThat(transaction.getStatus()).isEqualTo(TransactionStatus.COMPLETED);
         verify(accountClient).creditBalance(RECEIVER, SMALL);
         verify(otpService, never()).generate(anyString());
+
+        ArgumentCaptor<Object> event = ArgumentCaptor.forClass(Object.class);
+        verify(kafkaTemplate).send(eq("transaction.completed"), eq("tx-1"), event.capture());
+        assertThat(event.getValue()).isInstanceOfSatisfying(TransactionCompletedEvent.class, e -> {
+            assertThat(e.transactionId()).isEqualTo("tx-1");
+            assertThat(e.senderAccountNumber()).isEqualTo(SENDER);
+            assertThat(e.receiverAccountNumber()).isEqualTo(RECEIVER);
+            assertThat(e.amount()).isEqualByComparingTo(SMALL);
+            assertThat(e.completedAt()).isNotNull();
+        });
+    }
+
+    @Test
+    void kafkaDownAfterCreditStillCompletesTheTransfer() {
+        Transaction transaction = processing(SMALL);
+        when(kafkaTemplate.send(eq("transaction.completed"), any(), any()))
+                .thenThrow(new KafkaException("broker not available"));
+
+        service.handleFraudCheckClean("tx-1");
+
+        assertThat(transaction.getStatus()).isEqualTo(TransactionStatus.COMPLETED);
     }
 
     @Test
