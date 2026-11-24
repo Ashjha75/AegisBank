@@ -13,9 +13,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -29,6 +32,7 @@ import java.util.UUID;
 public class PaymentService {
 
     private final PaymentRepository paymentRepository;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @Value("${razorpay.key.id}")
     private String keyId;
@@ -103,10 +107,49 @@ public class PaymentService {
      * @param signature value of the X-Razorpay-Signature header
      */
     public void handleWebhook(String payload, String signature) {
-        throw notImplemented("handleWebhook");
+        log.info("Handling Razorpay webhook with payload: {} and signature: {}", payload, signature);
+
+        if (PAYMENT_COMPLETED_TOPIC.equals(payload)) {
+            handlePaymentCompleted(payload);
+        } else if (PAYMENT_FAILED_TOPIC.equals(payload)) {
+            handlePaymentFailed(payload);
+        } else {
+            log.warn("Received unknown webhook topic: {}", payload);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown webhook topic");
+        }
     }
 
-    private static ResponseStatusException notImplemented(String operation) {
-        return new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, operation + " is not implemented yet");
+    private void handlePaymentFailed(String payload) {
     }
+
+    private void handlePaymentCompleted(String payload) {
+        try {
+            Map<String, Object> paymentData = extractPaymentData(payload);
+            String razorpayOrderId = (String) paymentData.get("razorpayOrderId");
+            String razorpayPaymentId = (String) paymentData.get("razorpayPaymentId");
+
+            Payment payment = paymentRepository.findByRazorpayOrderId(razorpayOrderId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found for order id: " + razorpayOrderId));
+            payment.setRazorpayPaymentId(razorpayPaymentId);
+            payment.setStatus(PaymentStatus.COMPLETED);
+            paymentRepository.save(payment);
+
+//            Publish completed Payment event
+
+            Map<String, Object> eventPayload = new HashMap<>();
+            eventPayload.put("paymentId", payment.getId());
+            eventPayload.put("accountNumber", payment.getAccountNumber());
+            eventPayload.put("amount", payment.getAmount());
+            eventPayload.put("razorpayPaymentId", payment.getRazorpayPaymentId());
+
+            kafkaTemplate.send(PAYMENT_COMPLETED_TOPIC, payment.getId(), eventPayload);
+            log.info("Payment completed event published for payment id: {}", payment.getId());
+
+
+        } catch (Exception e) {
+            log.error("Error occurred while handling payment completed webhook", e);
+        }
+    }
+
+
 }
