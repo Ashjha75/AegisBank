@@ -25,7 +25,7 @@ public class NotificationService {
                                     "Your OTP is: %s. Valid for 5 minutes."+
                                     "If this wasn't you - ignore this message."
 
-                    ))
+                    ));
         } catch (Exception e) {
             log.error("Error while sending alert notification: {}", e.getMessage(), e);
             throw new RuntimeException("Error while sending alert notification", e);

@@ -5,6 +5,7 @@ import com.banking.paymentservice.dto.PaymentOrderResponse;
 import com.banking.paymentservice.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -21,11 +22,33 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
 
+    @Value("${razorpay.key.id}")
+    private String keyId;
+    @Value("${razorpay.key.secret}")
+    private String keySecret;
+
+    private static  final String  PAYMENT_COMPLETED_TOPIC = "payment.completed";
+    private static  final String  PAYMENT_FAILED_TOPIC = "payment.failed";
+
     /**
-     * TODO: save Payment (CREATED), create the Razorpay order (amount in paise), store razorpayOrderId,
-     *  return it with the public Razorpay key id for Checkout.
+     * Create Razorpay payment order
+     *<pre>
+     * Flow:
+     * 1. Create order in Razorpay (with amount, currency, receipt id, etc.)
+     * 2. Save the order id in our Payment entity (status CREATED)
+     * 3. Return the order id to the frontend.
+     * 4. Frontend will use the order id to open Razorpay checkout and complete the payment.
+     * 5. Razorpay will call our webhook when the payment is completed or failed.
+     * </pre>
+     * @param request
+     * @return
      */
+
     public PaymentOrderResponse createPaymentOrder(CreatePaymentRequest request) {
+        log.info("Creating payment order for account {} with amount {}", request.accountNumber(), request.amount());
+
+        RazorPayClient razorPayClient = new RazorPayClient();
+
         throw notImplemented("createPaymentOrder");
     }
 
