@@ -1,11 +1,12 @@
 package com.banking.paymentservice.service;
 
+import com.banking.paymentservice.config.RazorpayProperties;
 import com.banking.paymentservice.dto.CreatePaymentRequest;
 import com.banking.paymentservice.dto.PaymentOrderResponse;
 import com.banking.paymentservice.repository.PaymentRepository;
+import com.razorpay.RazorpayClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -21,11 +22,10 @@ import org.springframework.web.server.ResponseStatusException;
 public class PaymentService {
 
     private final PaymentRepository paymentRepository;
-
-    @Value("${razorpay.key.id}")
-    private String keyId;
-    @Value("${razorpay.key.secret}")
-    private String keySecret;
+    /** Shared client from RazorpayConfig, e.g. razorpayClient.orders.create(orderJson). */
+    private final RazorpayClient razorpayClient;
+    /** keyId() goes into PaymentOrderResponse for Checkout; webhookSecret() verifies webhooks. */
+    private final RazorpayProperties razorpayProperties;
 
     private static  final String  PAYMENT_COMPLETED_TOPIC = "payment.completed";
     private static  final String  PAYMENT_FAILED_TOPIC = "payment.failed";
@@ -47,8 +47,9 @@ public class PaymentService {
     public PaymentOrderResponse createPaymentOrder(CreatePaymentRequest request) {
         log.info("Creating payment order for account {} with amount {}", request.accountNumber(), request.amount());
 
-        RazorPayClient razorPayClient = new RazorPayClient();
-
+        // TODO: use the injected razorpayClient (don't create a new one per request). Its calls throw the
+        //  checked com.razorpay.RazorpayException - catch it here and rethrow an unchecked exception
+        //  instead of adding "throws" to the controller.
         throw notImplemented("createPaymentOrder");
     }
 
